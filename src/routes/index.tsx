@@ -166,17 +166,20 @@ function Index() {
         {/* Donation hero */}
         <section className="terminal-box mb-8 rounded-md p-6 md:p-10 text-center scan-line">
           <div className="text-xs uppercase tracking-widest text-terminal-dim">
-            // estimated_fees_routed_to_rainforest_24h
+            // total_fees_routed_to_rainforest_foundation_us
           </div>
           <div className="glow-amber mt-3 text-5xl font-bold md:text-7xl" style={{ color: "var(--amber)" }}>
-            {loading ? (
+            {totalDonated === 0 ? (
               <span className="text-terminal-dim">$--.--</span>
             ) : (
-              <CountUp value={donated24h} decimals={2} prefix="$" />
+              <CountUp value={totalDonated} decimals={2} prefix="$" />
             )}
           </div>
           <div className="mt-2 text-sm text-terminal-dim">
-            ≈ <CountUp value={treesEstimate} decimals={0} /> tree saplings · rolling 24h estimate
+            ≈ <CountUp value={treesEstimate} decimals={0} /> tree saplings · live from{" "}
+            <a href="https://www.donate.gg/charity-coins" target="_blank" rel="noreferrer" className="underline decoration-dotted underline-offset-4 hover:text-leaf">
+              donate.gg
+            </a>
           </div>
           <div className="mx-auto mt-6 max-w-2xl text-xs leading-relaxed text-terminal md:text-sm">
             creator fees from $FARTCOIN trades on pump.fun are forwarded to{" "}
