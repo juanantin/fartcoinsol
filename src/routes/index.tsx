@@ -54,6 +54,14 @@ const BOOT_LINES = [
 
 function Index() {
   const { data, loading, donated24h, ca } = useTokenData();
+  const fetchDonation = useServerFn(getDonationTotal);
+  const { data: donationLive } = useQuery({
+    queryKey: ["donation", ca],
+    queryFn: () => fetchDonation(),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+  const totalDonated = donationLive?.donated ?? 0;
   const [bootStep, setBootStep] = useState(0);
   const [bootDone, setBootDone] = useState(false);
 
@@ -74,8 +82,8 @@ function Index() {
   const sells = data?.txns?.h24?.sells ?? 0;
   const liquidity = data?.liquidity?.usd ?? 0;
 
-  // 1 USD ≈ ~10 trees planted via reforestation efficiency estimates
-  const treesEstimate = donated24h * 10;
+  // ~1 USD funds roughly 10 sapling protections via Rainforest Foundation US programs
+  const treesEstimate = totalDonated * 10;
 
   const copyCA = () => {
     navigator.clipboard.writeText(ca);
