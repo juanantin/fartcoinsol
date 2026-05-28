@@ -145,6 +145,31 @@ function Index() {
           </div>
         </header>
 
+        {/* Boot sequence */}
+        <section className="terminal-box mb-8 rounded-md p-4 md:p-6 scan-line">
+          <div className="mb-3 flex items-center gap-2 text-xs text-terminal-dim">
+            <span className="inline-block h-3 w-3 rounded-full" style={{ background: "var(--danger)" }} />
+            <span className="inline-block h-3 w-3 rounded-full" style={{ background: "var(--amber)" }} />
+            <span className="inline-block h-3 w-3 rounded-full" style={{ background: "var(--leaf)" }} />
+            <span className="ml-2">truth_terminal --- /dev/forest --- 80x24</span>
+          </div>
+          <pre className="overflow-x-auto text-[10px] leading-tight text-leaf md:text-xs glow">
+{ASCII_TREE}
+          </pre>
+          <div className="mt-3 space-y-1 text-xs md:text-sm">
+            {BOOT_LINES.slice(0, bootStep).map((l, i) => (
+              <div key={i} className="text-terminal">
+                <Typewriter text={l} speed={10} />
+              </div>
+            ))}
+            {bootDone && (
+              <div className="text-terminal">
+                truth_terminal:/$ <span className="blink">|</span>
+              </div>
+            )}
+          </div>
+        </section>
+
         {/* Donation hero — DOMINANT */}
         <section className="terminal-box mb-8 rounded-md p-6 md:p-12 text-center scan-line">
           <div className="text-xs uppercase tracking-[0.4em] text-terminal-dim md:text-sm">
@@ -170,15 +195,15 @@ function Index() {
             </span>
             <span className="hidden md:inline">::</span>
             <span>
-              {">"} live from{" "}
+              {">"}{" "}
               <a href="https://www.donate.gg/charity-coins" target="_blank" rel="noreferrer" className="underline decoration-dotted underline-offset-4 hover:text-leaf">
-                donate.gg
+                verify on donate.gg
               </a>
             </span>
             <span className="hidden md:inline">::</span>
             <span className="inline-flex items-center gap-2">
               <span className="inline-block h-2 w-2 animate-pulse rounded-full" style={{ background: "var(--amber)" }} />
-              streaming
+              live · donate.gg
             </span>
           </div>
           <div className="mx-auto mt-8 max-w-2xl text-xs leading-relaxed text-terminal md:text-sm">
@@ -194,31 +219,6 @@ function Index() {
             , the same nonprofit andy ayrey chose when he redirected fees from the
             original Fartcoin pair — protecting tropical rainforests across central
             and south america.
-          </div>
-        </section>
-
-        {/* Boot sequence */}
-        <section className="terminal-box mb-8 rounded-md p-4 md:p-6 scan-line">
-          <div className="mb-3 flex items-center gap-2 text-xs text-terminal-dim">
-            <span className="inline-block h-3 w-3 rounded-full" style={{ background: "var(--danger)" }} />
-            <span className="inline-block h-3 w-3 rounded-full" style={{ background: "var(--amber)" }} />
-            <span className="inline-block h-3 w-3 rounded-full" style={{ background: "var(--leaf)" }} />
-            <span className="ml-2">truth_terminal --- /dev/forest --- 80x24</span>
-          </div>
-          <pre className="overflow-x-auto text-[10px] leading-tight text-leaf md:text-xs glow">
-{ASCII_TREE}
-          </pre>
-          <div className="mt-3 space-y-1 text-xs md:text-sm">
-            {BOOT_LINES.slice(0, bootStep).map((l, i) => (
-              <div key={i} className="text-terminal">
-                <Typewriter text={l} speed={10} />
-              </div>
-            ))}
-            {bootDone && (
-              <div className="text-terminal">
-                truth_terminal:/$ <span className="blink">|</span>
-              </div>
-            )}
           </div>
         </section>
 

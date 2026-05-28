@@ -1,11 +1,8 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+export const runtime = "edge";
 
 const CA = "HnXDnwTa68tRhLRZdJkVRLAeYrUkCYgFgDavtwD1pump";
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=30");
-
+export default async function handler() {
   try {
     const response = await fetch("https://www.donate.gg/charity-coins", {
       headers: {
@@ -28,8 +25,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const raisedMatch = html.match(/\$([\d,]+\.\d{2})\s*Raised/i);
     if (raisedMatch) totalRaised = parseFloat(raisedMatch[1].replace(/,/g, ""));
 
-    res.json({ donated, totalRaised, source: "donate.gg", fetchedAt: new Date().toISOString() });
+    return Response.json(
+      { donated, totalRaised, source: "donate.gg", fetchedAt: new Date().toISOString() },
+      { headers: { "Cache-Control": "s-maxage=60, stale-while-revalidate=30" } }
+    );
   } catch (e) {
-    res.json({ donated: 0, totalRaised: 0, source: "donate.gg", fetchedAt: new Date().toISOString(), error: (e as Error).message });
+    return Response.json(
+      { donated: 0, totalRaised: 0, source: "donate.gg", fetchedAt: new Date().toISOString(), error: (e as Error).message }
+    );
   }
 }
