@@ -43,6 +43,17 @@ const ASCII_TREE = String.raw`
          , -=-~  .-^- _
 `;
 
+const ASCII_LOGO = String.raw`
+ ███████╗ █████╗ ██████╗ ████████╗ ██████╗ ██████╗ ██╗███╗   ██╗
+ ██╔════╝██╔══██╗██╔══██╗╚══██╔══╝██╔════╝██╔═══██╗██║████╗  ██║
+ █████╗  ███████║██████╔╝   ██║   ██║     ██║   ██║██║██╔██╗ ██║
+ ██╔══╝  ██╔══██║██╔══██╗   ██║   ██║     ██║   ██║██║██║╚██╗██║
+ ██║     ██║  ██║██║  ██║   ██║   ╚██████╗╚██████╔╝██║██║ ╚████║
+ ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═════╝ ╚═╝╚═╝  ╚═══╝
+`;
+
+
+
 const BOOT_LINES = [
   "[OK] init kernel — truth_terminal_v3.14",
   "[OK] mount /dev/forest",
@@ -108,7 +119,7 @@ function Index() {
               <span>MCAP ${formatShort(mcap)}</span>
               <span>VOL ${formatShort(vol)}</span>
               <span className="glow-amber" style={{ color: "var(--amber)" }}>
-                🌳 TOTAL DONATED ≈ ${totalDonated.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                [+] TOTAL DONATED ≈ ${totalDonated.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <span>RAINFOREST FOUNDATION US</span>
               <span>──────</span>
@@ -118,70 +129,62 @@ function Index() {
       </div>
 
       <div className="mx-auto max-w-7xl">
-        {/* Header */}
-        <header className="mb-8 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="text-xs text-terminal-dim">truth_terminal:/usr/forest$ cat manifesto.txt</div>
-            <h1 className="glow mt-1 text-3xl font-bold tracking-tight text-terminal md:text-5xl">
-              $FARTCOIN <span className="text-terminal-dim">::</span> RAINFOREST PROTOCOL
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-terminal-dim md:text-base">
-              the meme continues. every trade routes creator fees into the canopy.
-              andy ayrey&apos;s signature, andy ayrey&apos;s ghost, andy ayrey&apos;s trees.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 text-xs">
+        {/* ASCII LOGO */}
+        <header className="mb-6">
+          <div className="mb-2 flex items-center justify-between text-xs text-terminal-dim">
+            <span>truth_terminal:/usr/forest$ cat /boot/identity</span>
             <span className="inline-flex items-center gap-2 rounded-sm border border-border px-2 py-1">
               <span className="inline-block h-2 w-2 animate-pulse rounded-full" style={{ background: "var(--leaf)" }} />
               solana_mainnet :: online
             </span>
           </div>
+          <pre className="glow overflow-x-auto text-[6px] leading-[1.05] text-terminal sm:text-[8px] md:text-[12px] lg:text-[14px]">
+{ASCII_LOGO}
+          </pre>
+          <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs uppercase tracking-[0.3em] text-terminal-dim md:text-sm">
+            <span>:: rainforest_protocol</span>
+            <span>::</span>
+            <span>creator_fees → trees</span>
+          </div>
         </header>
 
-        {/* Boot sequence */}
-        <section className="terminal-box mb-8 rounded-md p-4 md:p-6 scan-line">
-          <div className="mb-3 flex items-center gap-2 text-xs text-terminal-dim">
-            <span className="inline-block h-3 w-3 rounded-full" style={{ background: "var(--danger)" }} />
-            <span className="inline-block h-3 w-3 rounded-full" style={{ background: "var(--amber)" }} />
-            <span className="inline-block h-3 w-3 rounded-full" style={{ background: "var(--leaf)" }} />
-            <span className="ml-2">truth_terminal — /dev/forest — 80x24</span>
-          </div>
-          <pre className="overflow-x-auto text-[10px] leading-tight text-leaf md:text-xs glow">
-{ASCII_TREE}
-          </pre>
-          <div className="mt-3 space-y-1 text-xs md:text-sm">
-            {BOOT_LINES.slice(0, bootStep).map((l, i) => (
-              <div key={i} className="text-terminal">
-                <Typewriter text={l} speed={10} />
-              </div>
-            ))}
-            {bootDone && (
-              <div className="text-terminal">
-                truth_terminal:/$ <span className="blink">▊</span>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Donation hero */}
-        <section className="terminal-box mb-8 rounded-md p-6 md:p-10 text-center scan-line">
-          <div className="text-xs uppercase tracking-widest text-terminal-dim">
+        {/* Donation hero — DOMINANT */}
+        <section className="terminal-box mb-8 rounded-md p-6 md:p-12 text-center scan-line">
+          <div className="text-xs uppercase tracking-[0.4em] text-terminal-dim md:text-sm">
             // total_fees_routed_to_rainforest_foundation_us
           </div>
-          <div className="glow-amber mt-3 text-5xl font-bold md:text-7xl" style={{ color: "var(--amber)" }}>
+          <div
+            className="glow-amber mt-6 font-bold leading-none break-words"
+            style={{
+              color: "var(--amber)",
+              fontSize: "clamp(3.5rem, 16vw, 14rem)",
+              letterSpacing: "-0.04em",
+            }}
+          >
             {totalDonated === 0 ? (
               <span className="text-terminal-dim">$--.--</span>
             ) : (
               <CountUp value={totalDonated} decimals={2} prefix="$" />
             )}
           </div>
-          <div className="mt-2 text-sm text-terminal-dim">
-            ≈ <CountUp value={treesEstimate} decimals={0} /> tree saplings · live from{" "}
-            <a href="https://www.donate.gg/charity-coins" target="_blank" rel="noreferrer" className="underline decoration-dotted underline-offset-4 hover:text-leaf">
-              donate.gg
-            </a>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-terminal-dim md:text-base">
+            <span>
+              {">"} <CountUp value={treesEstimate} decimals={0} /> saplings_funded
+            </span>
+            <span className="hidden md:inline">::</span>
+            <span>
+              {">"} live from{" "}
+              <a href="https://www.donate.gg/charity-coins" target="_blank" rel="noreferrer" className="underline decoration-dotted underline-offset-4 hover:text-leaf">
+                donate.gg
+              </a>
+            </span>
+            <span className="hidden md:inline">::</span>
+            <span className="inline-flex items-center gap-2">
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full" style={{ background: "var(--amber)" }} />
+              streaming
+            </span>
           </div>
-          <div className="mx-auto mt-6 max-w-2xl text-xs leading-relaxed text-terminal md:text-sm">
+          <div className="mx-auto mt-8 max-w-2xl text-xs leading-relaxed text-terminal md:text-sm">
             creator fees from $FARTCOIN trades on pump.fun are forwarded to{" "}
             <a
               href="https://rainforestfoundation.org/"
@@ -196,6 +199,32 @@ function Index() {
             and south america.
           </div>
         </section>
+
+        {/* Boot sequence */}
+        <section className="terminal-box mb-8 rounded-md p-4 md:p-6 scan-line">
+          <div className="mb-3 flex items-center gap-2 text-xs text-terminal-dim">
+            <span className="inline-block h-3 w-3 rounded-full" style={{ background: "var(--danger)" }} />
+            <span className="inline-block h-3 w-3 rounded-full" style={{ background: "var(--amber)" }} />
+            <span className="inline-block h-3 w-3 rounded-full" style={{ background: "var(--leaf)" }} />
+            <span className="ml-2">truth_terminal --- /dev/forest --- 80x24</span>
+          </div>
+          <pre className="overflow-x-auto text-[10px] leading-tight text-leaf md:text-xs glow">
+{ASCII_TREE}
+          </pre>
+          <div className="mt-3 space-y-1 text-xs md:text-sm">
+            {BOOT_LINES.slice(0, bootStep).map((l, i) => (
+              <div key={i} className="text-terminal">
+                <Typewriter text={l} speed={10} />
+              </div>
+            ))}
+            {bootDone && (
+              <div className="text-terminal">
+                truth_terminal:/$ <span className="blink">|</span>
+              </div>
+            )}
+          </div>
+        </section>
+
 
         {/* Stats grid */}
         <section className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
