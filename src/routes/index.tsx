@@ -119,7 +119,7 @@ function Index() {
               <span>MCAP ${formatShort(mcap)}</span>
               <span>VOL ${formatShort(vol)}</span>
               <span className="glow-amber" style={{ color: "var(--amber)" }}>
-                🌳 TOTAL DONATED ≈ ${totalDonated.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                [+] TOTAL DONATED ≈ ${totalDonated.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <span>RAINFOREST FOUNDATION US</span>
               <span>──────</span>
