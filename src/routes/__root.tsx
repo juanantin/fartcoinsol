@@ -82,8 +82,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:site", content: "@Lovable" },
       { name: "twitter:title", content: "Lovable App" },
       { name: "twitter:description", content: "$FARTCOIN token transactions and redirects fees to tree-planting donations." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/IZrVAGfRktPyaI4SMhx7xNNF43n1/social-images/social-1779980118135-Screenshot_2026-05-28_165449.webp" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/IZrVAGfRktPyaI4SMhx7xNNF43n1/social-images/social-1779980118135-Screenshot_2026-05-28_165449.webp" },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/IZrVAGfRktPyaI4SMhx7xNNF43n1/social-images/social-1779980837505-Untitled_(1).webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/IZrVAGfRktPyaI4SMhx7xNNF43n1/social-images/social-1779980837505-Untitled_(1).webp" },
     ],
     links: [
       {
