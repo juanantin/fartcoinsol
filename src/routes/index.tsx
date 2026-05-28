@@ -53,7 +53,7 @@ const BOOT_LINES = [
 ];
 
 function Index() {
-  const { data, loading, donated24h, ca } = useTokenData();
+  const { data, ca } = useTokenData();
   const fetchDonation = useServerFn(getDonationTotal);
   const { data: donationLive } = useQuery({
     queryKey: ["donation", ca],
