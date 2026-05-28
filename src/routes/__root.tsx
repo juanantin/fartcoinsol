@@ -74,7 +74,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: " App" },
       { name: "description", content: "$FARTCOIN token transactions and redirects fees to tree-planting donations" },
-      { name: "author", content: "Guonpun" },
+      { name: "author", content: "Fartcoin" },     
       { property: "og:title", content: "GP" },
       { property: "og:description", content: "$FARTCOIN token transactions and redirects fees to tree-planting donations" },
       { property: "og:type", content: "website" },
