@@ -286,11 +286,17 @@ function Index() {
         <footer className="mt-12 border-t border-border pt-6 text-center text-xs text-terminal-dim">
           <div>truth_terminal :: rainforest_protocol :: not financial advice. memes only.</div>
           <div className="mt-1">
-            fee-routing &amp; donation figures are live estimates derived from on-chain volume.
+            donation totals sourced live from{" "}
+            <a className="underline decoration-dotted underline-offset-4 hover:text-terminal" href="https://www.donate.gg/charity-coins" target="_blank" rel="noreferrer">
+              donate.gg/charity-coins
+            </a>.
           </div>
-          <div className="mt-3 flex justify-center gap-4">
+          <div className="mt-3 flex flex-wrap justify-center gap-4">
             <a className="hover:text-terminal" href={`https://pump.fun/coin/${ca}`} target="_blank" rel="noreferrer">
               pump.fun
+            </a>
+            <a className="hover:text-terminal" href={X_COMMUNITY} target="_blank" rel="noreferrer">
+              x_community
             </a>
             <a className="hover:text-terminal" href="https://rainforestfoundation.org/" target="_blank" rel="noreferrer">
               rainforest_foundation_us
