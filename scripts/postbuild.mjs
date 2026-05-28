@@ -1,48 +1,28 @@
-import { readFileSync, writeFileSync, readdirSync } from "fs";
+import { writeFileSync } from "fs";
 import { join } from "path";
 
 const clientDir = "dist/client";
-const assetsDir = join(clientDir, "assets");
 
-// Try manifest first (most reliable)
-let cssFiles = [];
-let jsEntry = null;
+// Run the SSR server to get the properly rendered HTML shell.
+// The client JS (hydrateRoot) needs real SSR HTML to hydrate against.
+const { default: serverEntry } = await import(`../${join("dist/server/server.js")}`);
 
-try {
-  const manifest = JSON.parse(readFileSync(join(clientDir, ".vite/manifest.json"), "utf8"));
-  for (const [, chunk] of Object.entries(manifest)) {
-    if (chunk.isEntry && chunk.file) jsEntry = chunk.file;
-    if (chunk.css) cssFiles.push(...chunk.css);
-  }
-} catch {
-  // Fallback: scan assets directory
-  const assets = readdirSync(assetsDir);
-  cssFiles = assets.filter((f) => f.endsWith(".css")).map((f) => `assets/${f}`);
-  // Pick the largest JS file as the entry (main bundle)
-  const jsFiles = assets.filter((f) => f.endsWith(".js")).map((f) => {
-    const { size } = { size: readFileSync(join(assetsDir, f)).length };
-    return { name: f, size };
-  });
-  jsFiles.sort((a, b) => b.size - a.size);
-  if (jsFiles[0]) jsEntry = `assets/${jsFiles[0].name}`;
+const request = new Request("http://localhost/", {
+  method: "GET",
+  headers: { host: "localhost" },
+});
+
+const response = await serverEntry.fetch(request, {}, {});
+if (!response.ok) {
+  console.error(`SSR request failed: ${response.status}`);
+  process.exit(1);
 }
 
-const cssLinks = cssFiles
-  .map((f) => `  <link rel="stylesheet" crossorigin href="/${f}" />`)
-  .join("\n");
+let html = await response.text();
 
-const html = `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-${cssLinks}
-  </head>
-  <body>
-    <script type="module" crossorigin src="/${jsEntry}"></script>
-  </body>
-</html>
-`;
+// Rewrite asset paths to be absolute so they work from any route under the SPA.
+html = html.replace(/href="\/assets\//g, 'href="/assets/');
+html = html.replace(/src="\/assets\//g, 'src="/assets/');
 
 writeFileSync(join(clientDir, "index.html"), html);
-console.log(`Generated dist/client/index.html (entry: ${jsEntry})`);
+console.log("Generated dist/client/index.html via SSR");
