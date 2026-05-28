@@ -1,8 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useTokenData } from "@/hooks/use-token-data";
 import { Typewriter } from "@/components/typewriter";
 import { CountUp } from "@/components/count-up";
+import { getDonationTotal } from "@/lib/donation.functions";
+
+const X_COMMUNITY = "https://x.com/i/communities/1962171664503840873";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -48,7 +53,15 @@ const BOOT_LINES = [
 ];
 
 function Index() {
-  const { data, loading, donated24h, ca } = useTokenData();
+  const { data, ca } = useTokenData();
+  const fetchDonation = useServerFn(getDonationTotal);
+  const { data: donationLive } = useQuery({
+    queryKey: ["donation", ca],
+    queryFn: () => fetchDonation(),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+  const totalDonated = donationLive?.donated ?? 0;
   const [bootStep, setBootStep] = useState(0);
   const [bootDone, setBootDone] = useState(false);
 
@@ -69,8 +82,8 @@ function Index() {
   const sells = data?.txns?.h24?.sells ?? 0;
   const liquidity = data?.liquidity?.usd ?? 0;
 
-  // 1 USD ≈ ~10 trees planted via reforestation efficiency estimates
-  const treesEstimate = donated24h * 10;
+  // ~1 USD funds roughly 10 sapling protections via Rainforest Foundation US programs
+  const treesEstimate = totalDonated * 10;
 
   const copyCA = () => {
     navigator.clipboard.writeText(ca);
@@ -95,7 +108,7 @@ function Index() {
               <span>MCAP ${formatShort(mcap)}</span>
               <span>VOL ${formatShort(vol)}</span>
               <span className="glow-amber" style={{ color: "var(--amber)" }}>
-                🌳 DONATED 24H ≈ ${donated24h.toFixed(2)}
+                🌳 TOTAL DONATED ≈ ${totalDonated.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <span>RAINFOREST FOUNDATION US</span>
               <span>──────</span>
@@ -153,17 +166,20 @@ function Index() {
         {/* Donation hero */}
         <section className="terminal-box mb-8 rounded-md p-6 md:p-10 text-center scan-line">
           <div className="text-xs uppercase tracking-widest text-terminal-dim">
-            // estimated_fees_routed_to_rainforest_24h
+            // total_fees_routed_to_rainforest_foundation_us
           </div>
           <div className="glow-amber mt-3 text-5xl font-bold md:text-7xl" style={{ color: "var(--amber)" }}>
-            {loading ? (
+            {totalDonated === 0 ? (
               <span className="text-terminal-dim">$--.--</span>
             ) : (
-              <CountUp value={donated24h} decimals={2} prefix="$" />
+              <CountUp value={totalDonated} decimals={2} prefix="$" />
             )}
           </div>
           <div className="mt-2 text-sm text-terminal-dim">
-            ≈ <CountUp value={treesEstimate} decimals={0} /> tree saplings · rolling 24h estimate
+            ≈ <CountUp value={treesEstimate} decimals={0} /> tree saplings · live from{" "}
+            <a href="https://www.donate.gg/charity-coins" target="_blank" rel="noreferrer" className="underline decoration-dotted underline-offset-4 hover:text-leaf">
+              donate.gg
+            </a>
           </div>
           <div className="mx-auto mt-6 max-w-2xl text-xs leading-relaxed text-terminal md:text-sm">
             creator fees from $FARTCOIN trades on pump.fun are forwarded to{" "}
@@ -226,6 +242,15 @@ function Index() {
               >
                 [ chart ]
               </a>
+              <a
+                href={X_COMMUNITY}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-sm border border-leaf px-3 py-2 text-xs transition hover:bg-leaf hover:text-background"
+                style={{ color: "var(--leaf)", borderColor: "var(--leaf)" }}
+              >
+                [ x_community ]
+              </a>
             </div>
           </div>
         </section>
@@ -270,11 +295,17 @@ function Index() {
         <footer className="mt-12 border-t border-border pt-6 text-center text-xs text-terminal-dim">
           <div>truth_terminal :: rainforest_protocol :: not financial advice. memes only.</div>
           <div className="mt-1">
-            fee-routing &amp; donation figures are live estimates derived from on-chain volume.
+            donation totals sourced live from{" "}
+            <a className="underline decoration-dotted underline-offset-4 hover:text-terminal" href="https://www.donate.gg/charity-coins" target="_blank" rel="noreferrer">
+              donate.gg/charity-coins
+            </a>.
           </div>
-          <div className="mt-3 flex justify-center gap-4">
+          <div className="mt-3 flex flex-wrap justify-center gap-4">
             <a className="hover:text-terminal" href={`https://pump.fun/coin/${ca}`} target="_blank" rel="noreferrer">
               pump.fun
+            </a>
+            <a className="hover:text-terminal" href={X_COMMUNITY} target="_blank" rel="noreferrer">
+              x_community
             </a>
             <a className="hover:text-terminal" href="https://rainforestfoundation.org/" target="_blank" rel="noreferrer">
               rainforest_foundation_us
