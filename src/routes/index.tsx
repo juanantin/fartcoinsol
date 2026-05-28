@@ -1,8 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useTokenData } from "@/hooks/use-token-data";
 import { Typewriter } from "@/components/typewriter";
 import { CountUp } from "@/components/count-up";
+import { getDonationTotal } from "@/lib/donation.functions";
+
+const X_COMMUNITY = "https://x.com/i/communities/1962171664503840873";
 
 export const Route = createFileRoute("/")({
   head: () => ({
