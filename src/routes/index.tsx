@@ -242,6 +242,15 @@ function Index() {
               >
                 [ chart ]
               </a>
+              <a
+                href={X_COMMUNITY}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-sm border border-leaf px-3 py-2 text-xs transition hover:bg-leaf hover:text-background"
+                style={{ color: "var(--leaf)", borderColor: "var(--leaf)" }}
+              >
+                [ x_community ]
+              </a>
             </div>
           </div>
         </section>
