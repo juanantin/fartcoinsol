@@ -49,28 +49,20 @@ async function getDonatedSOL(): Promise<number | null> {
 }
 
 async function getSolPrice(): Promise<number | null> {
-  // DexScreener — most real-time, same source used for token price
-  try {
-    const res = await fetch(
-      "https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112"
-    );
-    const json = await res.json();
-    const price = parseFloat(json?.pairs?.[0]?.priceUsd ?? "0");
-    if (price > 0) return price;
-  } catch {}
   try {
     const res = await fetch(
       "https://price.jup.ag/v6/price?ids=So11111111111111111111111111111111111111112"
     );
     const json = await res.json();
-    return json?.data?.["So11111111111111111111111111111111111111112"]?.price ?? null;
+    const price = json?.data?.["So11111111111111111111111111111111111111112"]?.price;
+    if (price > 0) return price;
   } catch {}
   try {
     const res = await fetch(
       "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd"
     );
     const json = await res.json();
-    return json?.solana?.usd ?? null;
+    if (json?.solana?.usd > 0) return json.solana.usd;
   } catch {}
   return null;
 }
