@@ -74,7 +74,16 @@ function Index() {
   const { data, ca } = useTokenData();
   const { data: donationLive } = useQuery({
     queryKey: ["donation"],
-    queryFn: () => fetch("/donation.json").then((r) => r.json()),
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/donation");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.donated > 0 || json.totalRaised > 0) return json;
+        }
+      } catch {}
+      return fetch("/donation.json").then((r) => r.json());
+    },
     refetchInterval: 120_000,
     staleTime: 60_000,
   });
