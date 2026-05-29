@@ -1,0 +1,61 @@
+name: Update Donation Data
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"   # every 2 hours
+  workflow_dispatch:          # allow manual trigger
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch donate.gg and update JSON
+        run: |
+          CA="HnXDnwTa68tRhLRZdJkVRLAeYrUkCYgFgDavtwD1pump"
+
+          HTTP_STATUS=$(curl -s -o /tmp/donate.html -w "%{http_code}" \
+            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36" \
+            -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
+            -H "Accept-Language: en-US,en;q=0.5" \
+            "https://www.donate.gg/charity-coins")
+
+          echo "HTTP status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Failed to fetch donate.gg (status $HTTP_STATUS) — keeping existing data"
+            exit 0
+          fi
+
+          HTML=$(cat /tmp/donate.html)
+          IDX=$(grep -bo "$CA" /tmp/donate.html | head -1 | cut -d: -f1)
+
+          DONATED=0
+          if [ -n "$IDX" ]; then
+            SLICE=$(dd if=/tmp/donate.html bs=1 skip=$IDX count=4000 2>/dev/null)
+            DONATED=$(echo "$SLICE" | grep -oP '\$\K[\d,]+\.\d{2}' | head -1 | tr -d ',')
+            DONATED=${DONATED:-0}
+          fi
+
+          TOTAL_RAISED=$(echo "$HTML" | grep -oP '\$[\d,]+\.\d{2}(?=\s*Raised)' | head -1 | tr -d '$,' || echo "0")
+          TOTAL_RAISED=${TOTAL_RAISED:-0}
+          FETCHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          echo "{\"donated\":$DONATED,\"totalRaised\":$TOTAL_RAISED,\"source\":\"donate.gg\",\"fetchedAt\":\"$FETCHED_AT\"}" > public/donation.json
+          echo "Wrote: donated=$DONATED totalRaised=$TOTAL_RAISED"
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/donation.json
+          if git diff --cached --quiet; then
+            echo "No change in donation data"
+          else
+            git commit -m "chore: update donation data [skip ci]"
+            git push
+          fi

@@ -74,9 +74,9 @@ function Index() {
   const { data, ca } = useTokenData();
   const { data: donationLive } = useQuery({
     queryKey: ["donation"],
-    queryFn: () => fetch("/api/donation").then((r) => r.json()),
-    refetchInterval: 60_000,
-    staleTime: 30_000,
+    queryFn: () => fetch("/donation.json").then((r) => r.json()),
+    refetchInterval: 120_000,
+    staleTime: 60_000,
   });
   const totalDonated = donationLive?.donated ?? 0;
   const [bootStep, setBootStep] = useState(0);
