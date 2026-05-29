@@ -210,6 +210,15 @@ function Index() {
               <CountUp value={totalDonated} decimals={2} prefix="$" />
             )}
           </div>
+          {donationLive?.solDonated != null && (
+            <div className="mt-2 text-sm text-terminal-dim md:text-base">
+              <span style={{ color: "var(--leaf)" }}>
+                <CountUp value={donationLive.solDonated} decimals={3} suffix=" SOL" />
+              </span>
+              <span className="mx-2 opacity-40">//</span>
+              <span className="opacity-60">~${totalDonated.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD est.</span>
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-terminal-dim md:text-base">
             <span>
               {">"} <CountUp value={treesEstimate} decimals={0} /> saplings_funded
