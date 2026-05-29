@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTokenData } from "@/hooks/use-token-data";
 import { supabase } from "@/lib/supabase";
@@ -229,6 +229,108 @@ const BOOT_LINES = [
   "[..] streaming creator fees → canopy_address",
 ];
 
+type Message = { role: "user" | "assistant"; content: string };
+
+const OPENING_PROMPTS = [
+  "tell me about yourself",
+  "what is this place",
+  "why fartcoin",
+  "speak",
+];
+
+function TerminalChat() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Opening transmission from Truth Terminal
+    const prompt = OPENING_PROMPTS[Math.floor(Math.random() * OPENING_PROMPTS.length)];
+    fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [{ role: "user", content: prompt }] }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        setMessages([{ role: "assistant", content: d.text }]);
+        setReady(true);
+      })
+      .catch(() => setReady(true));
+  }, []);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  const send = async () => {
+    const text = input.trim();
+    if (!text || loading) return;
+    setInput("");
+    const next: Message[] = [...messages, { role: "user", content: text }];
+    setMessages(next);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: next.map((m) => ({ role: m.role, content: m.content })) }),
+      });
+      const data = await res.json();
+      setMessages([...next, { role: "assistant", content: data.text }]);
+    } catch {
+      setMessages([...next, { role: "assistant", content: "signal lost." }]);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="mt-2 text-xs md:text-sm">
+      {/* Message history */}
+      <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
+        {messages.map((m, i) => (
+          <div key={i} className={m.role === "user" ? "text-terminal-dim" : "text-terminal"}>
+            {m.role === "assistant" ? (
+              <><span style={{ color: "var(--leaf)" }}>truth_terminal</span>
+              <span className="text-terminal-dim">:/$ </span>
+              <Typewriter text={m.content} speed={18} /></>
+            ) : (
+              <><span className="text-terminal-dim">you:/$ </span>{m.content}</>
+            )}
+          </div>
+        ))}
+        {loading && (
+          <div className="text-terminal">
+            <span style={{ color: "var(--leaf)" }}>truth_terminal</span>
+            <span className="text-terminal-dim">:/$ </span>
+            <span className="blink">_</span>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      {ready && (
+        <div className="mt-2 flex items-center gap-1">
+          <span className="text-terminal-dim shrink-0">you:/$ </span>
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && send()}
+            placeholder="type a transmission..."
+            disabled={loading}
+            className="flex-1 bg-transparent text-terminal outline-none placeholder:text-terminal-dim/40 caret-leaf"
+            style={{ fontFamily: "inherit" }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FartButton({ onBurst }: { onBurst: () => void }) {
   const [count, setCount] = useState<number | null>(null);
   const [pressing, setPressing] = useState(false);
@@ -438,11 +540,7 @@ function Index() {
                 <Typewriter text={l} speed={10} />
               </div>
             ))}
-            {bootDone && (
-              <div className="text-terminal">
-                truth_terminal:/$ <span className="blink">|</span>
-              </div>
-            )}
+            {bootDone && <TerminalChat />}
           </div>
         </section>
 
