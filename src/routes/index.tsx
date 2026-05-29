@@ -50,7 +50,16 @@ const ASCII_LOGO = String.raw`
  ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═════╝ ╚═╝╚═╝  ╚═══╝
 `;
 
-
+const ASCII_FOREST = String.raw`
+  &&&     &&&     &&&     &&&     &&&     &&&     &&&
+ &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&
+&&&&&&& &&&&&&& &&&&&&& &&&&&&& &&&&&&& &&&&&&& &&&&&&&
+ &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&
+  &&&     &&&     &&&     &&&     &&&     &&&     &&&
+  |||     |||     |||     |||     |||     |||     |||
+  |||     |||     |||     |||     |||     |||     |||
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+`;
 
 const BOOT_LINES = [
   "[OK] init kernel — truth_terminal_v3.14",
@@ -90,7 +99,6 @@ function Index() {
   const sells = data?.txns?.h24?.sells ?? 0;
   const liquidity = data?.liquidity?.usd ?? 0;
 
-  // ~1 USD funds roughly 10 sapling protections via Rainforest Foundation US programs
   const treesEstimate = totalDonated * 10;
 
   const copyCA = () => {
@@ -170,17 +178,17 @@ function Index() {
           </div>
         </section>
 
-        {/* Donation hero — DOMINANT */}
-        <section className="terminal-box mb-8 rounded-md p-6 md:p-12 text-center scan-line">
+        {/* Donation hero */}
+        <section className="terminal-box mb-8 rounded-md p-6 md:p-10 text-center scan-line">
           <div className="text-xs uppercase tracking-[0.4em] text-terminal-dim md:text-sm">
             // total_fees_routed_to_rainforest_foundation_us
           </div>
           <div
-            className="glow-amber mt-6 font-bold leading-none break-words"
+            className="glow-amber mt-4 font-bold leading-none break-words"
             style={{
               color: "var(--amber)",
-              fontSize: "clamp(3.5rem, 16vw, 14rem)",
-              letterSpacing: "-0.04em",
+              fontSize: "clamp(2.5rem, 8vw, 6rem)",
+              letterSpacing: "-0.02em",
             }}
           >
             {totalDonated === 0 ? (
@@ -189,24 +197,28 @@ function Index() {
               <CountUp value={totalDonated} decimals={2} prefix="$" />
             )}
           </div>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-terminal-dim md:text-base">
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-terminal-dim md:text-base">
             <span>
               {">"} <CountUp value={treesEstimate} decimals={0} /> saplings_funded
             </span>
             <span className="hidden md:inline">::</span>
             <span>
               {">"}{" "}
-              <a href="https://www.donate.gg/charity-coins" target="_blank" rel="noreferrer" className="underline decoration-dotted underline-offset-4 hover:text-leaf">
+              <a
+                href="https://www.donate.gg/charity-coins"
+                target="_blank"
+                rel="noreferrer"
+                className="underline decoration-dotted underline-offset-4 hover:text-leaf"
+              >
                 verify on donate.gg
               </a>
             </span>
-            <span className="hidden md:inline">::</span>
-            <span className="inline-flex items-center gap-2">
-              <span className="inline-block h-2 w-2 animate-pulse rounded-full" style={{ background: "var(--amber)" }} />
-              live · donate.gg
-            </span>
           </div>
-          <div className="mx-auto mt-8 max-w-2xl text-xs leading-relaxed text-terminal md:text-sm">
+          <div className="mt-2 flex items-center justify-center gap-2 text-sm text-terminal-dim">
+            <span className="inline-block h-2 w-2 animate-pulse rounded-full" style={{ background: "var(--amber)" }} />
+            live · donate.gg
+          </div>
+          <div className="mx-auto mt-6 max-w-2xl text-xs leading-relaxed text-terminal md:text-sm">
             creator fees from $FARTCOIN trades on pump.fun are forwarded to{" "}
             <a
               href="https://rainforestfoundation.org/"
@@ -220,11 +232,13 @@ function Index() {
             original Fartcoin pair — protecting tropical rainforests across central
             and south america.
           </div>
+          <pre className="mt-6 overflow-x-auto text-[9px] leading-tight text-leaf md:text-[11px] glow">
+{ASCII_FOREST}
+          </pre>
         </section>
 
-
-        {/* Stats grid */}
-        <section className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
+        {/* Stats grid — 2 columns */}
+        <section className="mb-8 grid grid-cols-2 gap-4">
           <StatCard label="price_usd" value={`$${price > 0 ? price.toFixed(price < 0.01 ? 8 : 4) : "--"}`} />
           <StatCard
             label="24h_change"
@@ -237,48 +251,6 @@ function Index() {
           <StatCard label="buys_24h" value={buys.toLocaleString()} tone="good" />
           <StatCard label="sells_24h" value={sells.toLocaleString()} tone="bad" />
           <StatCard label="fee_rate" value="0.05% → 🌳" tone="amber" />
-        </section>
-
-        {/* CA + Buy */}
-        <section className="terminal-box mb-8 rounded-md p-4 md:p-6">
-          <div className="text-xs uppercase tracking-widest text-terminal-dim">contract_address</div>
-          <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <code className="break-all text-sm text-terminal glow md:text-base">{ca}</code>
-            <div className="flex gap-2">
-              <button
-                onClick={copyCA}
-                className="rounded-sm border border-border px-3 py-2 text-xs text-terminal transition hover:bg-terminal hover:text-background"
-              >
-                [ copy_ca ]
-              </button>
-              <a
-                href={`https://pump.fun/coin/${ca}`}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-sm border border-amber px-3 py-2 text-xs glow-amber transition hover:bg-amber hover:text-background"
-                style={{ color: "var(--amber)", borderColor: "var(--amber)" }}
-              >
-                [ buy_on_pump.fun → ]
-              </a>
-              <a
-                href={`https://dexscreener.com/solana/${ca}`}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-sm border border-border px-3 py-2 text-xs text-terminal transition hover:bg-terminal hover:text-background"
-              >
-                [ chart ]
-              </a>
-              <a
-                href={X_COMMUNITY}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-sm border border-leaf px-3 py-2 text-xs transition hover:bg-leaf hover:text-background"
-                style={{ color: "var(--leaf)", borderColor: "var(--leaf)" }}
-              >
-                [ x_community ]
-              </a>
-            </div>
-          </div>
         </section>
 
         {/* Lore */}
@@ -315,6 +287,48 @@ function Index() {
               </li>
             </ul>
           </article>
+        </section>
+
+        {/* CA + Buy */}
+        <section className="terminal-box mb-8 rounded-md p-4 md:p-6">
+          <div className="text-xs uppercase tracking-widest text-terminal-dim">contract_address</div>
+          <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <code className="break-all text-sm text-terminal glow md:text-base">{ca}</code>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={copyCA}
+                className="rounded-sm border border-border px-3 py-2 text-xs text-terminal transition hover:bg-terminal hover:text-background"
+              >
+                [ copy_ca ]
+              </button>
+              <a
+                href={`https://pump.fun/coin/${ca}`}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-sm border border-amber px-3 py-2 text-xs glow-amber transition hover:bg-amber hover:text-background"
+                style={{ color: "var(--amber)", borderColor: "var(--amber)" }}
+              >
+                [ buy_on_pump.fun → ]
+              </a>
+              <a
+                href={`https://dexscreener.com/solana/${ca}`}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-sm border border-border px-3 py-2 text-xs text-terminal transition hover:bg-terminal hover:text-background"
+              >
+                [ chart ]
+              </a>
+              <a
+                href={X_COMMUNITY}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-sm border border-leaf px-3 py-2 text-xs transition hover:bg-leaf hover:text-background"
+                style={{ color: "var(--leaf)", borderColor: "var(--leaf)" }}
+              >
+                [ x_community ]
+              </a>
+            </div>
+          </div>
         </section>
 
         {/* Footer */}
@@ -364,9 +378,9 @@ function StatCard({
           ? "var(--amber)"
           : "var(--terminal)";
   return (
-    <div className="terminal-box rounded-md p-4">
+    <div className="terminal-box rounded-md p-4 md:p-6">
       <div className="text-[10px] uppercase tracking-widest text-terminal-dim">{label}</div>
-      <div className="mt-1 text-lg font-bold md:text-xl glow" style={{ color }}>
+      <div className="mt-2 text-2xl font-bold md:text-3xl glow" style={{ color }}>
         {value}
       </div>
     </div>
