@@ -14,66 +14,90 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Fetch donate.gg and update JSON
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright
         run: |
-          CA="HnXDnwTa68tRhLRZdJkVRLAeYrUkCYgFgDavtwD1pump"
-          DONATED=0
-          TOTAL_RAISED=0
+          npm install playwright@latest
+          npx playwright install chromium --with-deps
 
-          # Try direct fetch first
-          HTTP_STATUS=$(curl -s -o /tmp/donate.html -w "%{http_code}" \
-            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36" \
-            -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
-            -H "Accept-Language: en-US,en;q=0.5" \
-            "https://www.donate.gg/charity-coins")
-          echo "Direct HTTP status: $HTTP_STATUS"
+      - name: Scrape donate.gg with headless browser
+        run: |
+          node - <<'EOF'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
 
-          # If direct blocked, try via allorigins proxy
-          if [ "$HTTP_STATUS" != "200" ]; then
-            echo "Direct fetch failed — trying allorigins proxy..."
-            PROXY_URL="https://api.allorigins.win/raw?url=$(python3 -c 'import urllib.parse; print(urllib.parse.quote("https://www.donate.gg/charity-coins"))')"
-            HTTP_STATUS=$(curl -s -o /tmp/donate.html -w "%{http_code}" \
-              -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36" \
-              "$PROXY_URL")
-            echo "Proxy HTTP status: $HTTP_STATUS"
-          fi
+          const CA = 'HnXDnwTa68tRhLRZdJkVRLAeYrUkCYgFgDavtwD1pump';
 
-          # Try codetabs proxy as second fallback
-          if [ "$HTTP_STATUS" != "200" ]; then
-            echo "allorigins failed — trying codetabs proxy..."
-            PROXY_URL2="https://api.codetabs.com/v1/proxy/?quest=https://www.donate.gg/charity-coins"
-            HTTP_STATUS=$(curl -s -o /tmp/donate.html -w "%{http_code}" \
-              -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36" \
-              "$PROXY_URL2")
-            echo "Codetabs HTTP status: $HTTP_STATUS"
-          fi
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({
+              userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+              locale: 'en-US',
+            });
+            const page = await context.newPage();
 
-          if [ "$HTTP_STATUS" != "200" ]; then
-            echo "All fetch methods failed — keeping existing data"
-            exit 0
-          fi
+            try {
+              await page.goto('https://www.donate.gg/charity-coins', {
+                waitUntil: 'networkidle',
+                timeout: 30000,
+              });
 
-          HTML=$(cat /tmp/donate.html)
-          echo "Fetched HTML length: ${#HTML}"
+              // Wait for the token list to render
+              await page.waitForTimeout(3000);
 
-          IDX=$(grep -bo "$CA" /tmp/donate.html | head -1 | cut -d: -f1)
-          echo "CA found at byte: ${IDX:-not found}"
+              const content = await page.content();
 
-          if [ -n "$IDX" ]; then
-            # Look in a 2000-byte window before and 4000 after the CA match
-            START=$((IDX > 2000 ? IDX - 2000 : 0))
-            SLICE=$(dd if=/tmp/donate.html bs=1 skip=$START count=6000 2>/dev/null)
-            # Take the largest dollar amount near the CA (cumulative total)
-            DONATED=$(echo "$SLICE" | grep -oP '\$\K[\d,]+\.\d{2}' | tr -d ',' | sort -n | tail -1)
-            DONATED=${DONATED:-0}
-          fi
+              let donated = 0;
+              let totalRaised = 0;
 
-          TOTAL_RAISED=$(echo "$HTML" | grep -oP '\$[\d,]+\.\d{2}(?=\s*Raised)' | head -1 | tr -d '$,' || echo "0")
-          TOTAL_RAISED=${TOTAL_RAISED:-0}
-          FETCHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+              const idx = content.indexOf(CA);
+              if (idx !== -1) {
+                const start = Math.max(0, idx - 2000);
+                const slice = content.slice(start, idx + 4000);
+                const matches = [...slice.matchAll(/\$([\d,]+\.\d{2})/g)];
+                if (matches.length > 0) {
+                  const amounts = matches.map(m => parseFloat(m[1].replace(/,/g, '')));
+                  donated = Math.max(...amounts);
+                }
+                console.log(`CA found at index ${idx}, donated: $${donated}`);
+              } else {
+                console.log('CA not found in page. Trying text extraction...');
+                // Try to find by visible text on the page
+                const rows = await page.$$eval('*', els =>
+                  els
+                    .filter(el => el.textContent && el.textContent.includes('FARTCOIN'))
+                    .map(el => el.textContent.trim())
+                    .slice(0, 5)
+                );
+                console.log('FARTCOIN rows:', JSON.stringify(rows));
+              }
 
-          echo "Result: donated=$DONATED totalRaised=$TOTAL_RAISED"
-          echo "{\"donated\":$DONATED,\"totalRaised\":$TOTAL_RAISED,\"source\":\"donate.gg\",\"fetchedAt\":\"$FETCHED_AT\"}" > public/donation.json
+              const raisedMatch = content.match(/\$([\d,]+\.\d{2})\s*Raised/i);
+              if (raisedMatch) {
+                totalRaised = parseFloat(raisedMatch[1].replace(/,/g, ''));
+              }
+
+              const result = {
+                donated,
+                totalRaised,
+                source: 'donate.gg',
+                fetchedAt: new Date().toISOString(),
+              };
+
+              fs.writeFileSync('public/donation.json', JSON.stringify(result));
+              console.log('Wrote:', result);
+            } catch (err) {
+              console.error('Scrape failed:', err.message);
+              // Keep existing file on failure
+              process.exit(0);
+            } finally {
+              await browser.close();
+            }
+          })();
+          EOF
 
       - name: Commit if changed
         run: |
