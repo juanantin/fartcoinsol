@@ -41,6 +41,73 @@ const ASCII_TREE = String.raw`
          , -=-~  .-^- _
 `;
 
+// Characters that can flicker to simulate wind in the canopy
+const LEAF_CHARS = ["&", "*", "%", "@", "°", "'", "ø", "∂", "ε"];
+
+function TreeAnimation() {
+  const base = [
+    "            &&& &&  & &&           ",
+    "        && &\\/&\\|& ()|/ @, &&      ",
+    "        &\\/(/&/&||/& /_/)_&/_&     ",
+    "     &() &\\/&|()|/&\\/ '\"% & ()    ",
+    "    &_\\_&&_\\ |& |&&/&__%_/_& &&   ",
+    "  &&   && & &| &| /& & % ()& /&&   ",
+    "   ()&_---()&\\&\\|&&-&&--%---()~   ",
+    "       &&     \\|||               ",
+    "               |||               ",
+    "               |||               ",
+    "               |||               ",
+    "         , -=-~  .-^- _          ",
+  ];
+
+  const [cells, setCells] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const flicker = () => {
+      // pick 2-5 random leaf positions to swap
+      const next: Record<string, string> = {};
+      const count = 2 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < count; i++) {
+        const row = Math.floor(Math.random() * 7); // only canopy rows
+        const line = base[row];
+        // find leaf chars in this row
+        const positions: number[] = [];
+        for (let c = 0; c < line.length; c++) {
+          if ("&@%'".includes(line[c])) positions.push(c);
+        }
+        if (positions.length === 0) continue;
+        const col = positions[Math.floor(Math.random() * positions.length)];
+        next[`${row}-${col}`] = LEAF_CHARS[Math.floor(Math.random() * LEAF_CHARS.length)];
+      }
+      setCells(next);
+    };
+
+    const id = setInterval(flicker, 280);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <pre className="overflow-x-auto text-[10px] leading-tight text-leaf md:text-xs glow select-none">
+      {base.map((line, row) => (
+        <div key={row}>
+          {line.split("").map((ch, col) => {
+            const key = `${row}-${col}`;
+            const replaced = cells[key];
+            if (replaced) {
+              return (
+                <span key={col} style={{ color: "var(--amber)", opacity: 0.85 }}>
+                  {replaced}
+                </span>
+              );
+            }
+            return ch;
+          })}
+        </div>
+      ))}
+    </pre>
+  );
+}
+
 const ASCII_LOGO = String.raw`
  ███████╗ █████╗ ██████╗ ████████╗ ██████╗ ██████╗ ██╗███╗   ██╗
  ██╔════╝██╔══██╗██╔══██╗╚══██╔══╝██╔════╝██╔═══██╗██║████╗  ██║
@@ -242,9 +309,7 @@ function Index() {
             <span className="inline-block h-3 w-3 rounded-full" style={{ background: "var(--leaf)" }} />
             <span className="ml-2">truth_terminal --- /dev/forest --- 80x24</span>
           </div>
-          <pre className="overflow-x-auto text-[10px] leading-tight text-leaf md:text-xs glow">
-{ASCII_TREE}
-          </pre>
+          <TreeAnimation />
           <div className="mt-3 space-y-1 text-xs md:text-sm">
             {BOOT_LINES.slice(0, bootStep).map((l, i) => (
               <div key={i} className="text-terminal">
