@@ -82,7 +82,11 @@ function Index() {
           if (json.donated > 0 || json.totalRaised > 0) return json;
         }
       } catch {}
-      return fetch("/donation.json").then((r) => r.json());
+      try {
+        const res = await fetch("/donation.json");
+        if (res.ok) return res.json();
+      } catch {}
+      return { donated: 0, totalRaised: 0 };
     },
     refetchInterval: 120_000,
     staleTime: 60_000,
