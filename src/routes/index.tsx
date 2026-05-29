@@ -236,16 +236,22 @@ function FartButton({ onBurst }: { onBurst: () => void }) {
   let gasId = 0;
 
   useEffect(() => {
-    if (!supabase) return;
-    // Get initial count
+    if (!supabase) {
+      console.error("[fart] supabase is null — check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY env vars");
+      setCount(-1);
+      return;
+    }
     supabase
       .from("fart_counter")
       .select("count")
       .eq("id", "global")
       .single()
-      .then(({ data }) => { if (data) setCount(data.count); });
+      .then(({ data, error }) => {
+        console.log("[fart] select result:", data, error);
+        if (data) setCount(data.count);
+        else setCount(-2);
+      });
 
-    // Real-time subscription
     const channel = supabase
       .channel("fart_counter")
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "fart_counter" }, (payload) => {
@@ -309,6 +315,10 @@ function FartButton({ onBurst }: { onBurst: () => void }) {
       <div className="text-xs text-terminal-dim">
         {count === null
           ? "connecting to canopy..."
+          : count === -1
+          ? "err: missing env vars (VITE_SUPABASE_URL)"
+          : count === -2
+          ? "err: db read failed — check console"
           : <><span style={{ color: "var(--amber)" }} className="glow-amber">{count.toLocaleString()}</span> farts transmitted to the canopy</>
         }
       </div>
