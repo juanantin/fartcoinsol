@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTokenData } from "@/hooks/use-token-data";
+import { supabase } from "@/lib/supabase";
 import { Typewriter } from "@/components/typewriter";
 import { CountUp } from "@/components/count-up";
 
@@ -44,7 +45,9 @@ const ASCII_TREE = String.raw`
 // Characters that can flicker to simulate wind in the canopy
 const LEAF_CHARS = ["&", "*", "%", "@", "°", "'", "ø", "∂", "ε"];
 
-function TreeAnimation() {
+const BURST_CHARS = ["💨", "*", "~", "°", "ε", "ø", "§", "¥", "∞", "ξ", "#"];
+
+function TreeAnimation({ burst = false }: { burst?: boolean }) {
   const base = [
     "            &&& &&  & &&           ",
     "        && &\\/&\\|& ()|/ @, &&      ",
@@ -63,14 +66,32 @@ function TreeAnimation() {
   const [cells, setCells] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    if (burst) {
+      // Wild burst: replace ALL leaf chars rapidly
+      let t = 0;
+      const burstInterval = setInterval(() => {
+        const next: Record<string, string> = {};
+        for (let row = 0; row < 7; row++) {
+          const line = base[row];
+          for (let col = 0; col < line.length; col++) {
+            if ("&@%'()_-~".includes(line[col]) && Math.random() > 0.3) {
+              next[`${row}-${col}`] = BURST_CHARS[Math.floor(Math.random() * BURST_CHARS.length)];
+            }
+          }
+        }
+        setCells(next);
+        t++;
+        if (t > 6) clearInterval(burstInterval);
+      }, 80);
+      return () => clearInterval(burstInterval);
+    }
+
     const flicker = () => {
-      // pick 2-5 random leaf positions to swap
       const next: Record<string, string> = {};
       const count = 2 + Math.floor(Math.random() * 4);
       for (let i = 0; i < count; i++) {
-        const row = Math.floor(Math.random() * 7); // only canopy rows
+        const row = Math.floor(Math.random() * 7);
         const line = base[row];
-        // find leaf chars in this row
         const positions: number[] = [];
         for (let c = 0; c < line.length; c++) {
           if ("&@%'".includes(line[c])) positions.push(c);
@@ -84,7 +105,7 @@ function TreeAnimation() {
 
     const id = setInterval(flicker, 280);
     return () => clearInterval(id);
-  }, []);
+  }, [burst]);
 
   return (
     <pre className="overflow-x-auto text-[10px] leading-tight text-leaf md:text-xs glow select-none">
@@ -95,7 +116,10 @@ function TreeAnimation() {
             const replaced = cells[key];
             if (replaced) {
               return (
-                <span key={col} style={{ color: "var(--amber)", opacity: 0.85 }}>
+                <span
+                  key={col}
+                  style={{ color: burst ? "var(--amber)" : "var(--amber)", opacity: burst ? 1 : 0.85 }}
+                >
                   {replaced}
                 </span>
               );
@@ -205,6 +229,93 @@ const BOOT_LINES = [
   "[..] streaming creator fees → canopy_address",
 ];
 
+function FartButton({ onBurst }: { onBurst: () => void }) {
+  const [count, setCount] = useState<number | null>(null);
+  const [pressing, setPressing] = useState(false);
+  const [gas, setGas] = useState<{ id: number; x: number }[]>([]);
+  let gasId = 0;
+
+  useEffect(() => {
+    if (!supabase) return;
+    // Get initial count
+    supabase
+      .from("fart_counter")
+      .select("count")
+      .eq("id", "global")
+      .single()
+      .then(({ data }) => { if (data) setCount(data.count); });
+
+    // Real-time subscription
+    const channel = supabase
+      .channel("fart_counter")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "fart_counter" }, (payload) => {
+        setCount(payload.new.count);
+      })
+      .subscribe();
+
+    return () => { supabase!.removeChannel(channel); };
+  }, []);
+
+  const handleFart = async () => {
+    if (pressing) return;
+    setPressing(true);
+    onBurst();
+
+    // Float gas particles
+    const newGas = Array.from({ length: 5 }, (_, i) => ({
+      id: gasId++,
+      x: 30 + Math.random() * 40,
+    }));
+    setGas((g) => [...g, ...newGas]);
+    setTimeout(() => setGas((g) => g.filter((p) => !newGas.find((n) => n.id === p.id))), 1400);
+
+    // Increment in Supabase
+    if (supabase) {
+      await supabase.rpc("increment_farts");
+    }
+
+    setTimeout(() => setPressing(false), 600);
+  };
+
+  return (
+    <div className="mt-4 flex flex-col items-center gap-3">
+      {/* Floating gas particles */}
+      <div className="relative h-8 w-full overflow-hidden">
+        {gas.map((p) => (
+          <span
+            key={p.id}
+            className="absolute text-xs animate-rise"
+            style={{ left: `${p.x}%`, color: "var(--amber)", animationDuration: "1.2s" }}
+          >
+            💨
+          </span>
+        ))}
+      </div>
+
+      <button
+        onClick={handleFart}
+        disabled={pressing}
+        className="terminal-box rounded px-8 py-3 font-mono text-sm font-bold uppercase tracking-widest transition-all select-none"
+        style={{
+          color: pressing ? "var(--amber)" : "var(--leaf)",
+          borderColor: pressing ? "var(--amber)" : undefined,
+          textShadow: pressing ? "0 0 12px var(--amber)" : undefined,
+          cursor: pressing ? "default" : "pointer",
+        }}
+      >
+        {pressing ? "💨 FART TRANSMITTED 💨" : "[> FART THE TREE <]"}
+      </button>
+
+      <div className="text-xs text-terminal-dim">
+        {count === null
+          ? "connecting to canopy..."
+          : <><span style={{ color: "var(--amber)" }} className="glow-amber">{count.toLocaleString()}</span> farts transmitted to the canopy</>
+        }
+      </div>
+    </div>
+  );
+}
+
 function Index() {
   const { data, ca } = useTokenData();
   const { data: donationLive } = useQuery({
@@ -227,6 +338,7 @@ function Index() {
     staleTime: 60_000,
   });
   const totalDonated = donationLive?.donated ?? 0;
+  const [burst, setBurst] = useState(false);
   const [bootStep, setBootStep] = useState(0);
   const [bootDone, setBootDone] = useState(false);
 
@@ -309,7 +421,11 @@ function Index() {
             <span className="inline-block h-3 w-3 rounded-full" style={{ background: "var(--leaf)" }} />
             <span className="ml-2">truth_terminal --- /dev/forest --- 80x24</span>
           </div>
-          <TreeAnimation />
+          <TreeAnimation burst={burst} />
+          <FartButton onBurst={() => {
+            setBurst(true);
+            setTimeout(() => setBurst(false), 700);
+          }} />
           <div className="mt-3 space-y-1 text-xs md:text-sm">
             {BOOT_LINES.slice(0, bootStep).map((l, i) => (
               <div key={i} className="text-terminal">
