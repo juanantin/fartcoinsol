@@ -48,7 +48,14 @@ jobs:
               // Wait for the token list to render
               await page.waitForTimeout(3000);
 
+              const title = await page.title();
+              const url = page.url();
+              console.log('Page title:', title);
+              console.log('Page URL:', url);
+
               const content = await page.content();
+              console.log('Content length:', content.length);
+              console.log('Content preview:', content.slice(0, 1000));
 
               let donated = 0;
               let totalRaised = 0;
@@ -65,7 +72,6 @@ jobs:
                 console.log(`CA found at index ${idx}, donated: $${donated}`);
               } else {
                 console.log('CA not found in page. Trying text extraction...');
-                // Try to find by visible text on the page
                 const rows = await page.$$eval('*', els =>
                   els
                     .filter(el => el.textContent && el.textContent.includes('FARTCOIN'))
