@@ -513,7 +513,12 @@ function Index() {
         </section>
 
         {/* Stats grid — 2 columns */}
-        <section className="mb-8 grid grid-cols-2 gap-4">
+        <section className="mb-8">
+          <div className="mb-3 flex items-center gap-3">
+            <span className="font-mono text-lg font-bold glow-amber tracking-widest" style={{ color: "var(--amber)" }}>$FARTCOIN</span>
+            <span className="text-xs text-terminal-dim tracking-widest uppercase">// token_metrics</span>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
           <StatCard label="price_usd" value={`$${price > 0 ? price.toFixed(price < 0.01 ? 8 : 4) : "--"}`} />
           <StatCard
             label="24h_change"
@@ -526,6 +531,7 @@ function Index() {
           <StatCard label="buys_24h" value={buys.toLocaleString()} tone="good" />
           <StatCard label="sells_24h" value={sells.toLocaleString()} tone="bad" />
           <StatCard label="fee_rate" value="0.05% → 🌳" tone="amber" />
+          </div>
         </section>
 
         {/* Lore */}
