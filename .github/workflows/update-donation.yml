@@ -17,27 +17,54 @@ jobs:
       - name: Fetch donate.gg and update JSON
         run: |
           CA="HnXDnwTa68tRhLRZdJkVRLAeYrUkCYgFgDavtwD1pump"
+          DONATED=0
+          TOTAL_RAISED=0
 
+          # Try direct fetch first
           HTTP_STATUS=$(curl -s -o /tmp/donate.html -w "%{http_code}" \
             -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36" \
             -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
             -H "Accept-Language: en-US,en;q=0.5" \
             "https://www.donate.gg/charity-coins")
+          echo "Direct HTTP status: $HTTP_STATUS"
 
-          echo "HTTP status: $HTTP_STATUS"
+          # If direct blocked, try via allorigins proxy
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Direct fetch failed — trying allorigins proxy..."
+            PROXY_URL="https://api.allorigins.win/raw?url=$(python3 -c 'import urllib.parse; print(urllib.parse.quote("https://www.donate.gg/charity-coins"))')"
+            HTTP_STATUS=$(curl -s -o /tmp/donate.html -w "%{http_code}" \
+              -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36" \
+              "$PROXY_URL")
+            echo "Proxy HTTP status: $HTTP_STATUS"
+          fi
+
+          # Try codetabs proxy as second fallback
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "allorigins failed — trying codetabs proxy..."
+            PROXY_URL2="https://api.codetabs.com/v1/proxy/?quest=https://www.donate.gg/charity-coins"
+            HTTP_STATUS=$(curl -s -o /tmp/donate.html -w "%{http_code}" \
+              -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36" \
+              "$PROXY_URL2")
+            echo "Codetabs HTTP status: $HTTP_STATUS"
+          fi
 
           if [ "$HTTP_STATUS" != "200" ]; then
-            echo "Failed to fetch donate.gg (status $HTTP_STATUS) — keeping existing data"
+            echo "All fetch methods failed — keeping existing data"
             exit 0
           fi
 
           HTML=$(cat /tmp/donate.html)
-          IDX=$(grep -bo "$CA" /tmp/donate.html | head -1 | cut -d: -f1)
+          echo "Fetched HTML length: ${#HTML}"
 
-          DONATED=0
+          IDX=$(grep -bo "$CA" /tmp/donate.html | head -1 | cut -d: -f1)
+          echo "CA found at byte: ${IDX:-not found}"
+
           if [ -n "$IDX" ]; then
-            SLICE=$(dd if=/tmp/donate.html bs=1 skip=$IDX count=4000 2>/dev/null)
-            DONATED=$(echo "$SLICE" | grep -oP '\$\K[\d,]+\.\d{2}' | head -1 | tr -d ',')
+            # Look in a 2000-byte window before and 4000 after the CA match
+            START=$((IDX > 2000 ? IDX - 2000 : 0))
+            SLICE=$(dd if=/tmp/donate.html bs=1 skip=$START count=6000 2>/dev/null)
+            # Take the largest dollar amount near the CA (cumulative total)
+            DONATED=$(echo "$SLICE" | grep -oP '\$\K[\d,]+\.\d{2}' | tr -d ',' | sort -n | tail -1)
             DONATED=${DONATED:-0}
           fi
 
@@ -45,8 +72,8 @@ jobs:
           TOTAL_RAISED=${TOTAL_RAISED:-0}
           FETCHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+          echo "Result: donated=$DONATED totalRaised=$TOTAL_RAISED"
           echo "{\"donated\":$DONATED,\"totalRaised\":$TOTAL_RAISED,\"source\":\"donate.gg\",\"fetchedAt\":\"$FETCHED_AT\"}" > public/donation.json
-          echo "Wrote: donated=$DONATED totalRaised=$TOTAL_RAISED"
 
       - name: Commit if changed
         run: |
