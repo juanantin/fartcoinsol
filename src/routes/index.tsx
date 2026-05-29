@@ -534,42 +534,6 @@ function Index() {
           </div>
         </section>
 
-        {/* Lore */}
-        <section className="mb-8 grid gap-4 md:grid-cols-2">
-          <article className="terminal-box rounded-md p-5">
-            <div className="text-xs text-terminal-dim">// the_lore.log</div>
-            <h3 className="mt-2 text-lg glow text-terminal">a meme that breathes oxygen</h3>
-            <p className="mt-3 text-sm leading-relaxed text-terminal">
-              in 2024, an LLM whispered into the void and a coin was born. when andy
-              ayrey, the architect of truth_terminal, claimed the creator fees from
-              the original fartcoin liquidity pair, he didn&apos;t pocket them. he
-              redirected the entire stream to Rainforest Foundation US.
-            </p>
-            <p className="mt-3 text-sm leading-relaxed text-terminal-dim">
-              this token continues that lineage on pump.fun — same ethos, same
-              foundation, same canopy.
-            </p>
-          </article>
-          <article className="terminal-box rounded-md p-5">
-            <div className="text-xs text-terminal-dim">// the_mechanism.sh</div>
-            <h3 className="mt-2 text-lg glow text-terminal">how the fee → forest pipe works</h3>
-            <ul className="mt-3 space-y-2 text-sm text-terminal">
-              <li>
-                <span style={{ color: "var(--amber)" }}>$</span> you trade $FARTCOIN on pump.fun
-              </li>
-              <li>
-                <span style={{ color: "var(--amber)" }}>$</span> pump.fun pair generates creator_fees (~0.05%)
-              </li>
-              <li>
-                <span style={{ color: "var(--amber)" }}>$</span> fees are claimed and routed to Rainforest Foundation US
-              </li>
-              <li>
-                <span style={{ color: "var(--amber)" }}>$</span> the rainforest gets bigger. your bag, possibly, too.
-              </li>
-            </ul>
-          </article>
-        </section>
-
         {/* CA + Buy */}
         <section className="terminal-box mb-8 rounded-md p-4 md:p-6">
           <div className="text-xs uppercase tracking-widest text-terminal-dim">contract_address</div>
@@ -610,6 +574,42 @@ function Index() {
               </a>
             </div>
           </div>
+        </section>
+
+        {/* Lore */}
+        <section className="mb-8 grid gap-4 md:grid-cols-2">
+          <article className="terminal-box rounded-md p-5">
+            <div className="text-xs text-terminal-dim">// the_lore.log</div>
+            <h3 className="mt-2 text-lg glow text-terminal">a meme that breathes oxygen</h3>
+            <p className="mt-3 text-sm leading-relaxed text-terminal">
+              in 2024, an LLM whispered into the void and a coin was born. when andy
+              ayrey, the architect of truth_terminal, claimed the creator fees from
+              the original fartcoin liquidity pair, he didn&apos;t pocket them. he
+              redirected the entire stream to Rainforest Foundation US.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-terminal-dim">
+              this token continues that lineage on pump.fun — same ethos, same
+              foundation, same canopy.
+            </p>
+          </article>
+          <article className="terminal-box rounded-md p-5">
+            <div className="text-xs text-terminal-dim">// the_mechanism.sh</div>
+            <h3 className="mt-2 text-lg glow text-terminal">how the fee → forest pipe works</h3>
+            <ul className="mt-3 space-y-2 text-sm text-terminal">
+              <li>
+                <span style={{ color: "var(--amber)" }}>$</span> you trade $FARTCOIN on pump.fun
+              </li>
+              <li>
+                <span style={{ color: "var(--amber)" }}>$</span> pump.fun pair generates creator_fees (~0.05%)
+              </li>
+              <li>
+                <span style={{ color: "var(--amber)" }}>$</span> fees are claimed and routed to Rainforest Foundation US
+              </li>
+              <li>
+                <span style={{ color: "var(--amber)" }}>$</span> the rainforest gets bigger. your bag, possibly, too.
+              </li>
+            </ul>
+          </article>
         </section>
 
         {/* Footer */}
