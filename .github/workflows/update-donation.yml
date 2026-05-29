@@ -14,16 +14,64 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
+      - name: Try pump.fun API directly
+        run: |
+          CA="HnXDnwTa68tRhLRZdJkVRLAeYrUkCYgFgDavtwD1pump"
+          DONATED=0
 
-      - name: Install Playwright
+          echo "=== Trying frontend-api.pump.fun ==="
+          RESP=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
+            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
+            -H "Accept: application/json" \
+            -H "Origin: https://pump.fun" \
+            -H "Referer: https://pump.fun/" \
+            "https://frontend-api.pump.fun/coins/$CA")
+          STATUS=$(echo "$RESP" | grep "HTTP_STATUS:" | cut -d: -f2)
+          BODY=$(echo "$RESP" | grep -v "HTTP_STATUS:")
+          echo "Status: $STATUS"
+          echo "Body: ${BODY:0:500}"
+
+          if [ "$STATUS" = "200" ]; then
+            # Extract donation_usd or similar field
+            DONATED=$(echo "$BODY" | python3 -c "
+          import sys, json, re
+          try:
+            d = json.load(sys.stdin)
+            keys = list(d.keys())
+            print('Keys:', keys, file=sys.stderr)
+            for k in ['donation_usd','donated_usd','total_donation','charity_usd','creator_fee_usd']:
+              if k in d and d[k]:
+                print(d[k])
+                exit()
+            # Look for any key with 'donat' or 'charit'
+            for k,v in d.items():
+              if ('donat' in k.lower() or 'charit' in k.lower()) and v:
+                print(v)
+                exit()
+            print(0)
+          except Exception as e:
+            print(0)
+            print('parse error:', e, file=sys.stderr)
+          " 2>&1)
+            echo "Donated: $DONATED"
+          fi
+
+          echo "=== Trying client-api herokuapp ==="
+          RESP2=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
+            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+            -H "Accept: application/json" \
+            "https://client-api-2-74b1891ee9f9.herokuapp.com/coins/$CA")
+          STATUS2=$(echo "$RESP2" | grep "HTTP_STATUS:" | cut -d: -f2)
+          BODY2=$(echo "$RESP2" | grep -v "HTTP_STATUS:")
+          echo "Status: $STATUS2"
+          echo "Body: ${BODY2:0:500}"
+
+      - name: Install Playwright and scrape pump.fun
         run: |
           npm install playwright@latest
           npx playwright install chromium --with-deps
 
-      - name: Scrape pump.fun for donation data
+      - name: Scrape pump.fun coin page
         run: |
           node - <<'EOF'
           const { chromium } = require('playwright');
@@ -38,90 +86,48 @@ jobs:
               locale: 'en-US',
             });
 
-            let donated = 0;
-            let apiData = null;
-
-            // Intercept pump.fun API responses to capture coin data directly
+            // Capture ALL API responses from pump.fun
+            const captured = [];
             context.on('response', async (response) => {
               const url = response.url();
-              if (url.includes(CA) && url.includes('pump.fun') && response.status() === 200) {
-                try {
+              if (!url.includes('pump.fun')) return;
+              try {
+                const ct = response.headers()['content-type'] || '';
+                if (ct.includes('json')) {
                   const json = await response.json();
-                  console.log('Intercepted API:', url);
-                  console.log('API response keys:', Object.keys(json));
-                  if (json.donation_usd !== undefined) {
-                    donated = json.donation_usd;
-                    apiData = json;
-                  } else if (json.total_donation_usd !== undefined) {
-                    donated = json.total_donation_usd;
-                    apiData = json;
-                  } else {
-                    // Log all numeric fields to find the right one
-                    for (const [k, v] of Object.entries(json)) {
-                      if (typeof v === 'number' || (typeof v === 'string' && !isNaN(parseFloat(v)))) {
-                        console.log(`  field: ${k} = ${v}`);
-                      }
-                    }
-                    apiData = json;
-                  }
-                } catch {}
-              }
+                  captured.push({ url, json });
+                }
+              } catch {}
             });
 
             const page = await context.newPage();
 
             try {
               await page.goto(`https://pump.fun/coin/${CA}`, { waitUntil: 'networkidle', timeout: 30000 });
-              await page.waitForTimeout(4000);
+              await page.waitForTimeout(5000);
 
-              // If API interception didn't find it, parse visible text
-              if (donated === 0) {
-                const content = await page.content();
-                const dollarMatch = content.match(/Donated[\s\S]{0,80}\(\$([\d,]+(?:\.\d{2})?)\)/i);
-                if (dollarMatch) {
-                  donated = parseFloat(dollarMatch[1].replace(/,/g, ''));
-                  console.log('Found via HTML pattern:', donated);
-                } else {
-                  // Try getting text from visible elements containing "Donated"
-                  const texts = await page.$$eval('*', els =>
-                    els.filter(el => el.children.length === 0 && el.textContent && el.textContent.includes('Donated'))
-                       .map(el => el.textContent.trim())
-                       .slice(0, 10)
-                  );
-                  console.log('Donated text nodes:', JSON.stringify(texts));
-
-                  // Try to extract dollar amount from those texts
-                  for (const t of texts) {
-                    const m = t.match(/\$\s*([\d,]+(?:\.\d{2})?)/);
-                    if (m) {
-                      donated = parseFloat(m[1].replace(/,/g, ''));
-                      console.log('Extracted from text node:', donated);
-                      break;
+              console.log('=== Captured API calls ===');
+              for (const { url, json } of captured) {
+                console.log('URL:', url);
+                if (typeof json === 'object' && json !== null) {
+                  // Print all keys with numeric values
+                  for (const [k, v] of Object.entries(json)) {
+                    if (typeof v === 'number' || (typeof v === 'string' && /^\d+\.?\d*$/.test(v))) {
+                      console.log(`  ${k}: ${v}`);
                     }
                   }
                 }
               }
 
-              const result = { donated, totalRaised: donated, source: 'pump.fun', fetchedAt: new Date().toISOString() };
-              fs.writeFileSync('public/donation.json', JSON.stringify(result));
-              console.log('Wrote:', result);
+              // Get all visible text
+              const bodyText = await page.evaluate(() => document.body.innerText);
+              console.log('=== Page text (first 3000 chars) ===');
+              console.log(bodyText.slice(0, 3000));
+
             } catch (err) {
               console.error('Scrape failed:', err.message);
-              process.exit(0);
             } finally {
               await browser.close();
             }
           })();
           EOF
-
-      - name: Commit if changed
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add public/donation.json
-          if git diff --cached --quiet; then
-            echo "No change in donation data"
-          else
-            git commit -m "chore: update donation data [skip ci]"
-            git push
-          fi
