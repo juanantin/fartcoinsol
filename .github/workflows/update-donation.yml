@@ -23,13 +23,14 @@ jobs:
           npm install playwright@latest
           npx playwright install chromium --with-deps
 
-      - name: Scrape donate.gg with headless browser
+      - name: Scrape pump.fun coin page for donation data
         run: |
           node - <<'EOF'
           const { chromium } = require('playwright');
           const fs = require('fs');
 
           const CA = 'HnXDnwTa68tRhLRZdJkVRLAeYrUkCYgFgDavtwD1pump';
+          const URL = `https://pump.fun/coin/${CA}`;
 
           (async () => {
             const browser = await chromium.launch({ headless: true });
@@ -40,56 +41,37 @@ jobs:
             const page = await context.newPage();
 
             try {
-              await page.goto('https://www.donate.gg/charity-coins', {
-                waitUntil: 'networkidle',
-                timeout: 30000,
-              });
-
-              // Wait for the token list to render
+              await page.goto(URL, { waitUntil: 'networkidle', timeout: 30000 });
               await page.waitForTimeout(3000);
 
-              const title = await page.title();
-              const url = page.url();
-              console.log('Page title:', title);
-              console.log('Page URL:', url);
+              console.log('Page title:', await page.title());
+              console.log('Page URL:', page.url());
 
               const content = await page.content();
               console.log('Content length:', content.length);
-              console.log('Content preview:', content.slice(0, 1000));
 
               let donated = 0;
-              let totalRaised = 0;
 
-              const idx = content.indexOf(CA);
-              if (idx !== -1) {
-                const start = Math.max(0, idx - 2000);
-                const slice = content.slice(start, idx + 4000);
-                const matches = [...slice.matchAll(/\$([\d,]+\.\d{2})/g)];
-                if (matches.length > 0) {
-                  const amounts = matches.map(m => parseFloat(m[1].replace(/,/g, '')));
-                  donated = Math.max(...amounts);
-                }
-                console.log(`CA found at index ${idx}, donated: $${donated}`);
+              // Primary: match "Donated X SOL ($15,810.84)" pattern
+              const dollarMatch = content.match(/Donated[\s\S]{0,50}\(\$([\d,]+(?:\.\d{2})?)\)/i);
+              if (dollarMatch) {
+                donated = parseFloat(dollarMatch[1].replace(/,/g, ''));
+                console.log('Found dollar amount:', donated);
               } else {
-                console.log('CA not found in page. Trying text extraction...');
-                const rows = await page.$$eval('*', els =>
-                  els
-                    .filter(el => el.textContent && el.textContent.includes('FARTCOIN'))
-                    .map(el => el.textContent.trim())
-                    .slice(0, 5)
-                );
-                console.log('FARTCOIN rows:', JSON.stringify(rows));
-              }
-
-              const raisedMatch = content.match(/\$([\d,]+\.\d{2})\s*Raised/i);
-              if (raisedMatch) {
-                totalRaised = parseFloat(raisedMatch[1].replace(/,/g, ''));
+                // Fallback: find SOL amount and use it (need SOL price to convert)
+                const solMatch = content.match(/Donated\s+([\d.]+)\s+SOL/i);
+                if (solMatch) {
+                  console.log('Found SOL amount:', solMatch[1], '— no dollar conversion available');
+                } else {
+                  console.log('No donation pattern found');
+                  console.log('Content preview:', content.slice(0, 2000));
+                }
               }
 
               const result = {
                 donated,
-                totalRaised,
-                source: 'donate.gg',
+                totalRaised: donated,
+                source: 'pump.fun',
                 fetchedAt: new Date().toISOString(),
               };
 
@@ -97,7 +79,6 @@ jobs:
               console.log('Wrote:', result);
             } catch (err) {
               console.error('Scrape failed:', err.message);
-              // Keep existing file on failure
               process.exit(0);
             } finally {
               await browser.close();
