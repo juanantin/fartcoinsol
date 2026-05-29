@@ -2,8 +2,8 @@ name: Update Donation Data
 
 on:
   schedule:
-    - cron: "0 */2 * * *"   # every 2 hours
-  workflow_dispatch:          # allow manual trigger
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
 
 jobs:
   update:
@@ -14,120 +14,138 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Try pump.fun API directly
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch donation data
         run: |
           CA="HnXDnwTa68tRhLRZdJkVRLAeYrUkCYgFgDavtwD1pump"
-          DONATED=0
 
-          echo "=== Trying frontend-api.pump.fun ==="
-          RESP=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
+          # Try pump.fun frontend API directly
+          echo "=== pump.fun frontend API ==="
+          BODY=$(curl -s \
             -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
-            -H "Accept: application/json" \
+            -H "Accept: application/json, */*" \
+            -H "Accept-Language: en-US,en;q=0.9" \
             -H "Origin: https://pump.fun" \
-            -H "Referer: https://pump.fun/" \
+            -H "Referer: https://pump.fun/coin/$CA" \
+            -H "sec-ch-ua: \"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\"" \
+            -H "sec-ch-ua-mobile: ?0" \
+            -H "sec-ch-ua-platform: \"Windows\"" \
+            -H "sec-fetch-dest: empty" \
+            -H "sec-fetch-mode: cors" \
+            -H "sec-fetch-site: same-site" \
             "https://frontend-api.pump.fun/coins/$CA")
-          STATUS=$(echo "$RESP" | grep "HTTP_STATUS:" | cut -d: -f2)
-          BODY=$(echo "$RESP" | grep -v "HTTP_STATUS:")
-          echo "Status: $STATUS"
-          echo "Body: ${BODY:0:500}"
+          echo "Response: ${BODY:0:1000}"
 
-          if [ "$STATUS" = "200" ]; then
-            # Extract donation_usd or similar field
-            DONATED=$(echo "$BODY" | python3 -c "
-          import sys, json, re
+          DONATED=$(echo "$BODY" | python3 -c "
+          import sys, json
           try:
             d = json.load(sys.stdin)
-            keys = list(d.keys())
-            print('Keys:', keys, file=sys.stderr)
-            for k in ['donation_usd','donated_usd','total_donation','charity_usd','creator_fee_usd']:
-              if k in d and d[k]:
+            print('ALL_KEYS:', list(d.keys()), file=sys.stderr)
+            for k, v in d.items():
+              if isinstance(v, (int, float)) or (isinstance(v, str) and v.replace('.','').isdigit()):
+                print(f'  {k}: {v}', file=sys.stderr)
+            # Common field names for donation
+            for k in ['donation_usd','donated_usd','total_donated','charity_amount','creator_fee_total','donation','total_donation_usd']:
+              if k in d:
                 print(d[k])
-                exit()
-            # Look for any key with 'donat' or 'charit'
-            for k,v in d.items():
-              if ('donat' in k.lower() or 'charit' in k.lower()) and v:
-                print(v)
-                exit()
+                sys.exit()
             print(0)
           except Exception as e:
             print(0)
-            print('parse error:', e, file=sys.stderr)
+            print('err:', e, file=sys.stderr)
           " 2>&1)
-            echo "Donated: $DONATED"
+          echo "Donated parsed: $DONATED"
+
+          # Save if we got a real value
+          if echo "$DONATED" | grep -qP '^\d+\.?\d*$' && [ "$(echo "$DONATED" | python3 -c 'import sys; print(float(sys.stdin.read().strip()) > 0)')" = "True" ]; then
+            FETCHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            echo "{\"donated\":$DONATED,\"totalRaised\":$DONATED,\"source\":\"pump.fun\",\"fetchedAt\":\"$FETCHED_AT\"}" > public/donation.json
+            echo "Wrote donation: $DONATED"
+            exit 0
           fi
 
-          echo "=== Trying client-api herokuapp ==="
-          RESP2=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
-            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
-            -H "Accept: application/json" \
-            "https://client-api-2-74b1891ee9f9.herokuapp.com/coins/$CA")
-          STATUS2=$(echo "$RESP2" | grep "HTTP_STATUS:" | cut -d: -f2)
-          BODY2=$(echo "$RESP2" | grep -v "HTTP_STATUS:")
-          echo "Status: $STATUS2"
-          echo "Body: ${BODY2:0:500}"
+          # Fallback: use playwright with stealth
+          echo "=== Falling back to Playwright stealth ==="
+          npm install playwright-extra playwright-extra-plugin-stealth 2>/dev/null
+          npx playwright install chromium --with-deps 2>/dev/null
 
-      - name: Install Playwright and scrape pump.fun
-        run: |
-          npm install playwright@latest
-          npx playwright install chromium --with-deps
-
-      - name: Scrape pump.fun coin page
-        run: |
-          node - <<'EOF'
-          const { chromium } = require('playwright');
+          node - "$CA" <<'JSEOF'
+          const { chromium } = require('playwright-extra');
+          const stealth = require('playwright-extra-plugin-stealth');
+          chromium.use(stealth());
           const fs = require('fs');
-
-          const CA = 'HnXDnwTa68tRhLRZdJkVRLAeYrUkCYgFgDavtwD1pump';
+          const CA = process.argv[2];
 
           (async () => {
             const browser = await chromium.launch({ headless: true });
             const context = await browser.newContext({
               userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
               locale: 'en-US',
+              viewport: { width: 1280, height: 800 },
             });
 
-            // Capture ALL API responses from pump.fun
-            const captured = [];
+            let donated = 0;
+
             context.on('response', async (response) => {
               const url = response.url();
               if (!url.includes('pump.fun')) return;
               try {
                 const ct = response.headers()['content-type'] || '';
-                if (ct.includes('json')) {
-                  const json = await response.json();
-                  captured.push({ url, json });
-                }
-              } catch {}
-            });
-
-            const page = await context.newPage();
-
-            try {
-              await page.goto(`https://pump.fun/coin/${CA}`, { waitUntil: 'networkidle', timeout: 30000 });
-              await page.waitForTimeout(5000);
-
-              console.log('=== Captured API calls ===');
-              for (const { url, json } of captured) {
-                console.log('URL:', url);
-                if (typeof json === 'object' && json !== null) {
-                  // Print all keys with numeric values
+                if (!ct.includes('json')) return;
+                const json = await response.json();
+                console.log('API:', url.slice(0, 120));
+                if (json && typeof json === 'object') {
                   for (const [k, v] of Object.entries(json)) {
                     if (typeof v === 'number' || (typeof v === 'string' && /^\d+\.?\d*$/.test(v))) {
                       console.log(`  ${k}: ${v}`);
                     }
                   }
                 }
-              }
+              } catch {}
+            });
 
-              // Get all visible text
-              const bodyText = await page.evaluate(() => document.body.innerText);
-              console.log('=== Page text (first 3000 chars) ===');
+            const page = await context.newPage();
+            try {
+              await page.goto(`https://pump.fun/coin/${CA}`, { waitUntil: 'networkidle', timeout: 40000 });
+              await page.waitForTimeout(5000);
+
+              const bodyText = await page.evaluate(() => document.body.innerText).catch(() => '');
+              console.log('=== Visible text ===');
               console.log(bodyText.slice(0, 3000));
 
-            } catch (err) {
-              console.error('Scrape failed:', err.message);
+              // Try finding the donated amount directly in the text
+              const m = bodyText.match(/Donated\s+([\d.]+)\s+SOL\s*\(\$([0-9,]+(?:\.\d{2})?)\)/i);
+              if (m) {
+                donated = parseFloat(m[2].replace(/,/g, ''));
+                console.log('Found donated:', donated);
+              }
+            } catch (e) {
+              console.error('Error:', e.message);
             } finally {
               await browser.close();
             }
+
+            if (donated > 0) {
+              const result = { donated, totalRaised: donated, source: 'pump.fun', fetchedAt: new Date().toISOString() };
+              fs.writeFileSync('public/donation.json', JSON.stringify(result));
+              console.log('Wrote:', result);
+            } else {
+              console.log('No donation value found — keeping existing data');
+            }
           })();
-          EOF
+          JSEOF
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/donation.json
+          if git diff --cached --quiet; then
+            echo "No change"
+          else
+            git commit -m "chore: update donation data [skip ci]"
+            git push
+          fi
