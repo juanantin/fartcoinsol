@@ -1,92 +1,97 @@
 export const config = { runtime: "edge" };
 
-const CA = "HnXDnwTa68tRhLRZdJkVRLAeYrUkCYgFgDavtwD1pump";
-const HEADERS = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" };
+const MINT = "HnXDnwTa68tRhLRZdJkVRLAeYrUkCYgFgDavtwD1pump";
+const FEE_PROGRAM = "pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ";
+// DonationFeePda Anchor discriminator: sha256("account:DonationFeePda")[0..8]
+const DISCRIMINATOR_B58 = "iGzHuqTccwt"; // base58([246,197,96,9,193,30,93,115])
 
-async function fetchViaProxy(url: string): Promise<string | null> {
-  // Try allorigins.win - uses residential proxy IPs
-  const proxies = [
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
-  ];
+const RPC_ENDPOINTS = [
+  "https://rpc.ankr.com/solana",
+  "https://api.mainnet-beta.solana.com",
+];
 
-  for (const proxyUrl of proxies) {
+async function rpc(endpoint: string, method: string, params: unknown[]) {
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+  });
+  return res.json();
+}
+
+async function getDonatedSOL(): Promise<number | null> {
+  for (const endpoint of RPC_ENDPOINTS) {
     try {
-      const res = await fetch(proxyUrl, {
-        headers: {
-          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      const data = await rpc(endpoint, "getProgramAccounts", [
+        FEE_PROGRAM,
+        {
+          encoding: "base64",
+          filters: [
+            { memcmp: { offset: 0, bytes: DISCRIMINATOR_B58 } },
+            { memcmp: { offset: 42, bytes: MINT } },
+          ],
         },
-      });
-      if (res.ok) {
-        const text = await res.text();
-        if (text && text.length > 500) return text;
+      ]);
+      if (data.error) continue;
+      let totalLamports = BigInt(0);
+      for (const { account } of data.result ?? []) {
+        const buf = Uint8Array.from(atob(account.data[0]), (c) => c.charCodeAt(0));
+        if (buf.length >= 146) {
+          // Read u64 little-endian at offset 138
+          const view = new DataView(buf.buffer);
+          totalLamports += view.getBigUint64(138, true);
+        }
       }
+      return Number(totalLamports) / 1e9;
     } catch {}
   }
   return null;
 }
 
-function parseHtml(html: string): { donated: number; totalRaised: number } {
-  let donated = 0;
-  let totalRaised = 0;
-
-  const idx = html.indexOf(CA);
-  if (idx !== -1) {
-    const start = Math.max(0, idx - 2000);
-    const slice = html.slice(start, idx + 4000);
-    const matches = [...slice.matchAll(/\$([\d,]+\.\d{2})/g)];
-    if (matches.length > 0) {
-      const amounts = matches.map((m) => parseFloat(m[1].replace(/,/g, "")));
-      donated = Math.max(...amounts);
-    }
-  }
-
-  const raisedMatch = html.match(/\$([\d,]+\.\d{2})\s*Raised/i);
-  if (raisedMatch) totalRaised = parseFloat(raisedMatch[1].replace(/,/g, ""));
-
-  return { donated, totalRaised };
+async function getSolPrice(): Promise<number | null> {
+  try {
+    const res = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd"
+    );
+    const json = await res.json();
+    return json?.solana?.usd ?? null;
+  } catch {}
+  try {
+    const res = await fetch(
+      "https://price.jup.ag/v6/price?ids=So11111111111111111111111111111111111111112"
+    );
+    const json = await res.json();
+    return json?.data?.["So11111111111111111111111111111111111111112"]?.price ?? null;
+  } catch {}
+  return null;
 }
 
-export default async function handler(request: Request): Promise<Response> {
-  // 1. Try direct fetch (works if Vercel edge IPs are not blocked)
+export default async function handler(): Promise<Response> {
+  const headers = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Cache-Control": "s-maxage=300, stale-while-revalidate=60",
+  };
+
   try {
-    const res = await fetch("https://www.donate.gg/charity-coins", {
-      headers: {
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "accept-language": "en-US,en;q=0.5",
-      },
-    });
+    const [solDonated, solPrice] = await Promise.all([getDonatedSOL(), getSolPrice()]);
 
-    if (res.ok) {
-      const html = await res.text();
-      const { donated, totalRaised } = parseHtml(html);
+    if (solDonated !== null && solPrice) {
+      const donated = solDonated * solPrice;
       return new Response(
-        JSON.stringify({ donated, totalRaised, source: "donate.gg/direct", fetchedAt: new Date().toISOString() }),
-        { headers: { ...HEADERS, "Cache-Control": "s-maxage=300, stale-while-revalidate=60" } }
-      );
-    }
-
-    const status = res.status;
-
-    // 2. If direct blocked, try via proxy
-    const html = await fetchViaProxy("https://www.donate.gg/charity-coins");
-    if (html) {
-      const { donated, totalRaised } = parseHtml(html);
-      return new Response(
-        JSON.stringify({ donated, totalRaised, source: "donate.gg/proxy", fetchedAt: new Date().toISOString() }),
-        { headers: { ...HEADERS, "Cache-Control": "s-maxage=300, stale-while-revalidate=60" } }
+        JSON.stringify({ donated, solDonated, solPrice, source: "solana-rpc", fetchedAt: new Date().toISOString() }),
+        { headers }
       );
     }
 
     return new Response(
-      JSON.stringify({ donated: 0, totalRaised: 0, error: `HTTP ${status} and proxy failed` }),
-      { headers: { ...HEADERS, "Cache-Control": "no-store" } }
+      JSON.stringify({ donated: 0, error: `solDonated=${solDonated} solPrice=${solPrice}` }),
+      { headers: { ...headers, "Cache-Control": "no-store" } }
     );
   } catch (e) {
     return new Response(
-      JSON.stringify({ donated: 0, totalRaised: 0, error: (e as Error).message }),
-      { headers: { ...HEADERS, "Cache-Control": "no-store" } }
+      JSON.stringify({ donated: 0, error: (e as Error).message }),
+      { headers: { ...headers, "Cache-Control": "no-store" } }
     );
   }
 }

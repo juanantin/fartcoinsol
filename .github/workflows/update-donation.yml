@@ -18,125 +18,94 @@ jobs:
         with:
           node-version: 20
 
-      - name: Fetch donation data
+      - name: Fetch on-chain donation data
         run: |
-          CA="HnXDnwTa68tRhLRZdJkVRLAeYrUkCYgFgDavtwD1pump"
-
-          # Try pump.fun frontend API directly
-          echo "=== pump.fun frontend API ==="
-          BODY=$(curl -s \
-            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
-            -H "Accept: application/json, */*" \
-            -H "Accept-Language: en-US,en;q=0.9" \
-            -H "Origin: https://pump.fun" \
-            -H "Referer: https://pump.fun/coin/$CA" \
-            -H "sec-ch-ua: \"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\"" \
-            -H "sec-ch-ua-mobile: ?0" \
-            -H "sec-ch-ua-platform: \"Windows\"" \
-            -H "sec-fetch-dest: empty" \
-            -H "sec-fetch-mode: cors" \
-            -H "sec-fetch-site: same-site" \
-            "https://frontend-api.pump.fun/coins/$CA")
-          echo "Response: ${BODY:0:1000}"
-
-          DONATED=$(echo "$BODY" | python3 -c "
-          import sys, json
-          try:
-            d = json.load(sys.stdin)
-            print('ALL_KEYS:', list(d.keys()), file=sys.stderr)
-            for k, v in d.items():
-              if isinstance(v, (int, float)) or (isinstance(v, str) and v.replace('.','').isdigit()):
-                print(f'  {k}: {v}', file=sys.stderr)
-            # Common field names for donation
-            for k in ['donation_usd','donated_usd','total_donated','charity_amount','creator_fee_total','donation','total_donation_usd']:
-              if k in d:
-                print(d[k])
-                sys.exit()
-            print(0)
-          except Exception as e:
-            print(0)
-            print('err:', e, file=sys.stderr)
-          " 2>&1)
-          echo "Donated parsed: $DONATED"
-
-          # Save if we got a real value
-          if echo "$DONATED" | grep -qP '^\d+\.?\d*$' && [ "$(echo "$DONATED" | python3 -c 'import sys; print(float(sys.stdin.read().strip()) > 0)')" = "True" ]; then
-            FETCHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-            echo "{\"donated\":$DONATED,\"totalRaised\":$DONATED,\"source\":\"pump.fun\",\"fetchedAt\":\"$FETCHED_AT\"}" > public/donation.json
-            echo "Wrote donation: $DONATED"
-            exit 0
-          fi
-
-          # Fallback: use playwright with stealth
-          echo "=== Falling back to Playwright stealth ==="
-          npm install playwright-extra playwright-extra-plugin-stealth 2>/dev/null
-          npx playwright install chromium --with-deps 2>/dev/null
-
-          node - "$CA" <<'JSEOF'
-          const { chromium } = require('playwright-extra');
-          const stealth = require('playwright-extra-plugin-stealth');
-          chromium.use(stealth());
+          node - <<'EOF'
           const fs = require('fs');
-          const CA = process.argv[2];
 
-          (async () => {
-            const browser = await chromium.launch({ headless: true });
-            const context = await browser.newContext({
-              userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-              locale: 'en-US',
-              viewport: { width: 1280, height: 800 },
+          const MINT = 'HnXDnwTa68tRhLRZdJkVRLAeYrUkCYgFgDavtwD1pump';
+          const FEE_PROGRAM = 'pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ';
+          // base58 of DonationFeePda discriminator [246,197,96,9,193,30,93,115]
+          const DISC_B58 = 'iGzHuqTccwt';
+
+          const RPC_ENDPOINTS = [
+            'https://rpc.ankr.com/solana',
+            'https://api.mainnet-beta.solana.com',
+          ];
+
+          async function rpc(endpoint, method, params) {
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
             });
+            return res.json();
+          }
 
-            let donated = 0;
-
-            context.on('response', async (response) => {
-              const url = response.url();
-              if (!url.includes('pump.fun')) return;
+          async function getDonatedSOL() {
+            for (const endpoint of RPC_ENDPOINTS) {
+              console.log('Trying RPC:', endpoint);
               try {
-                const ct = response.headers()['content-type'] || '';
-                if (!ct.includes('json')) return;
-                const json = await response.json();
-                console.log('API:', url.slice(0, 120));
-                if (json && typeof json === 'object') {
-                  for (const [k, v] of Object.entries(json)) {
-                    if (typeof v === 'number' || (typeof v === 'string' && /^\d+\.?\d*$/.test(v))) {
-                      console.log(`  ${k}: ${v}`);
-                    }
+                const data = await rpc(endpoint, 'getProgramAccounts', [
+                  FEE_PROGRAM,
+                  {
+                    encoding: 'base64',
+                    filters: [
+                      { memcmp: { offset: 0, bytes: DISC_B58 } },
+                      { memcmp: { offset: 42, bytes: MINT } },
+                    ],
+                  },
+                ]);
+                if (data.error) { console.log('RPC error:', JSON.stringify(data.error)); continue; }
+                console.log('Accounts found:', data.result?.length ?? 0);
+                let totalLamports = BigInt(0);
+                for (const { account } of data.result ?? []) {
+                  const buf = Buffer.from(account.data[0], 'base64');
+                  if (buf.length >= 146) {
+                    const donated = buf.readBigUInt64LE(138);
+                    console.log('  account donated lamports:', donated.toString());
+                    totalLamports += donated;
                   }
                 }
-              } catch {}
-            });
-
-            const page = await context.newPage();
-            try {
-              await page.goto(`https://pump.fun/coin/${CA}`, { waitUntil: 'networkidle', timeout: 40000 });
-              await page.waitForTimeout(5000);
-
-              const bodyText = await page.evaluate(() => document.body.innerText).catch(() => '');
-              console.log('=== Visible text ===');
-              console.log(bodyText.slice(0, 3000));
-
-              // Try finding the donated amount directly in the text
-              const m = bodyText.match(/Donated\s+([\d.]+)\s+SOL\s*\(\$([0-9,]+(?:\.\d{2})?)\)/i);
-              if (m) {
-                donated = parseFloat(m[2].replace(/,/g, ''));
-                console.log('Found donated:', donated);
+                return Number(totalLamports) / 1e9;
+              } catch (e) {
+                console.log('Error:', e.message);
               }
-            } catch (e) {
-              console.error('Error:', e.message);
-            } finally {
-              await browser.close();
             }
+            return null;
+          }
 
-            if (donated > 0) {
-              const result = { donated, totalRaised: donated, source: 'pump.fun', fetchedAt: new Date().toISOString() };
+          async function getSolPrice() {
+            try {
+              const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+              const json = await res.json();
+              console.log('SOL price (coingecko):', json?.solana?.usd);
+              return json?.solana?.usd ?? null;
+            } catch {}
+            try {
+              const res = await fetch('https://price.jup.ag/v6/price?ids=So11111111111111111111111111111111111111112');
+              const json = await res.json();
+              const price = json?.data?.['So11111111111111111111111111111111111111112']?.price ?? null;
+              console.log('SOL price (jupiter):', price);
+              return price;
+            } catch {}
+            return null;
+          }
+
+          (async () => {
+            const [solDonated, solPrice] = await Promise.all([getDonatedSOL(), getSolPrice()]);
+            console.log('solDonated:', solDonated, 'solPrice:', solPrice);
+
+            if (solDonated !== null && solPrice) {
+              const donated = solDonated * solPrice;
+              const result = { donated, solDonated, solPrice, source: 'solana-rpc', fetchedAt: new Date().toISOString() };
               fs.writeFileSync('public/donation.json', JSON.stringify(result));
               console.log('Wrote:', result);
             } else {
-              console.log('No donation value found — keeping existing data');
+              console.log('Could not get data — keeping existing file');
             }
           })();
-          JSEOF
+          EOF
 
       - name: Commit if changed
         run: |
