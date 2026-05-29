@@ -191,7 +191,7 @@ function Index() {
               letterSpacing: "-0.02em",
             }}
           >
-            {totalDonated === 0 ? (
+            {donationLive === undefined ? (
               <span className="text-terminal-dim">$--.--</span>
             ) : (
               <CountUp value={totalDonated} decimals={2} prefix="$" />
@@ -380,7 +380,7 @@ function StatCard({
   return (
     <div className="terminal-box rounded-md p-4 md:p-6">
       <div className="text-[10px] uppercase tracking-widest text-terminal-dim">{label}</div>
-      <div className="mt-2 text-2xl font-bold md:text-3xl glow" style={{ color }}>
+      <div className="mt-2 text-lg font-bold md:text-xl glow" style={{ color }}>
         {value}
       </div>
     </div>
