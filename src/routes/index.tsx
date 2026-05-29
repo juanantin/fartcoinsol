@@ -277,7 +277,13 @@ function FartButton({ onBurst }: { onBurst: () => void }) {
 
     // Increment in Supabase
     if (supabase) {
-      await supabase.rpc("increment_farts");
+      const { error } = await supabase.rpc("increment_farts");
+      if (error) console.error("[fart] rpc error:", error);
+      else {
+        // Also manually refresh count in case realtime is slow
+        const { data } = await supabase.from("fart_counter").select("count").eq("id", "global").single();
+        if (data) setCount(data.count);
+      }
     }
 
     setTimeout(() => setPressing(false), 600);
