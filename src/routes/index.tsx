@@ -319,7 +319,7 @@ function TerminalChat() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && send()}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); send(); } }}
             placeholder="type a transmission..."
             disabled={loading}
             className="flex-1 bg-transparent text-terminal outline-none placeholder:text-terminal-dim/40 caret-leaf"

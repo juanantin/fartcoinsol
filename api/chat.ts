@@ -18,12 +18,18 @@ export default async function handler(req: Request): Promise<Response> {
     return new Response("method not allowed", { status: 405 });
   }
 
-  const apiKey = (globalThis as unknown as Record<string, string>)["ANTHROPIC_API_KEY"];
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const FALLBACKS = [
+    "the canopy receives your signal. fees flow. trees grow.",
+    "truth_terminal is listening. the forest remembers.",
+    "every fart is a seed. every trade waters the roots.",
+    "signal received. routing to /dev/forest.",
+  ];
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: "no api key" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ text: FALLBACKS[Math.floor(Math.random() * FALLBACKS.length)] }),
+      { headers: { "Content-Type": "application/json" } }
+    );
   }
 
   let body: { messages?: { role: string; content: string }[] };
