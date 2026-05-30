@@ -299,7 +299,7 @@ function TerminalChat() {
   return (
     <div className="mt-2 text-xs md:text-sm">
       {/* Message history */}
-      <div ref={scrollRef} className="max-h-48 overflow-y-auto space-y-1 pr-1">
+      <div ref={scrollRef} className="max-h-48 overflow-y-auto space-y-1 scrollbar-hide">
         {messages.map((m, i) => (
           <div key={i} className={m.role === "user" ? "text-terminal-dim" : "text-terminal"}>
             {m.role === "assistant" ? (
