@@ -261,6 +261,8 @@ function TerminalChat() {
   }, []);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const historyRef = useRef<string[]>([]);
+  const historyIdx = useRef(-1);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -271,6 +273,8 @@ function TerminalChat() {
   const send = async () => {
     const text = input.trim();
     if (!text || loading) return;
+    historyRef.current = [text, ...historyRef.current];
+    historyIdx.current = -1;
     setInput("");
     const next: Message[] = [...messages, { role: "user", content: text }];
     setMessages(next);
@@ -325,7 +329,22 @@ function TerminalChat() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); send(); } }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); send(); }
+              else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                const h = historyRef.current;
+                if (!h.length) return;
+                const idx = Math.min(historyIdx.current + 1, h.length - 1);
+                historyIdx.current = idx;
+                setInput(h[idx]);
+              } else if (e.key === "ArrowDown") {
+                e.preventDefault();
+                const idx = historyIdx.current - 1;
+                historyIdx.current = idx;
+                setInput(idx < 0 ? "" : historyRef.current[idx]);
+              }
+            }}
             placeholder="type a transmission..."
             disabled={loading}
             className="flex-1 bg-transparent text-terminal outline-none placeholder:text-terminal-dim/40 caret-leaf"
