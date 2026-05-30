@@ -527,7 +527,7 @@ function Index() {
         </header>
 
         {/* Boot sequence */}
-        <section className="terminal-box mb-8 rounded-md p-4 md:p-6 scan-line">
+        <section className="terminal-box mb-8 rounded-md p-4 md:p-6">
           <div className="mb-3 flex items-center gap-2 text-xs text-terminal-dim">
             <span className="inline-block h-3 w-3 rounded-full" style={{ background: "var(--danger)" }} />
             <span className="inline-block h-3 w-3 rounded-full" style={{ background: "var(--amber)" }} />
