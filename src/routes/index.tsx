@@ -432,6 +432,10 @@ function FartButton({ onBurst }: { onBurst: () => void }) {
 
 function Index() {
   const { data, ca } = useTokenData();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
   const { data: donationLive } = useQuery({
     queryKey: ["donation"],
     queryFn: async () => {
