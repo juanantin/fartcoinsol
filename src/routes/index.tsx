@@ -447,12 +447,17 @@ function Index() {
   });
   const totalDonated = donationLive?.donated ?? 0;
   const [burst, setBurst] = useState(false);
-  const [bootStep, setBootStep] = useState(0);
-  const [bootDone, setBootDone] = useState(false);
+  const [bootStep, setBootStep] = useState(() =>
+    typeof sessionStorage !== "undefined" && sessionStorage.getItem("booted") ? BOOT_LINES.length : 0
+  );
+  const [bootDone, setBootDone] = useState(() =>
+    typeof sessionStorage !== "undefined" && sessionStorage.getItem("booted") === "1"
+  );
 
   useEffect(() => {
     if (bootStep >= BOOT_LINES.length) {
       setBootDone(true);
+      sessionStorage.setItem("booted", "1");
       return;
     }
     const id = setTimeout(() => setBootStep((s) => s + 1), 500);
