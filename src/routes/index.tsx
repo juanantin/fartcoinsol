@@ -261,6 +261,7 @@ function TerminalChat() {
   }, []);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const historyRef = useRef<string[]>([]);
   const historyIdx = useRef(-1);
 
@@ -291,6 +292,7 @@ function TerminalChat() {
       setMessages([...next, { role: "assistant", content: "signal lost." }]);
     } finally {
       setLoading(false);
+      setTimeout(() => inputRef.current?.focus(), 0);
     }
   };
 
@@ -326,6 +328,7 @@ function TerminalChat() {
         <div className="mt-2 flex items-center gap-1">
           <span className="text-terminal-dim shrink-0">you:/$ </span>
           <input
+            ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
