@@ -285,8 +285,9 @@ function TerminalChat() {
       setMessages([...next, { role: "assistant", content: data.text }]);
     } catch {
       setMessages([...next, { role: "assistant", content: "signal lost." }]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -298,7 +299,10 @@ function TerminalChat() {
             {m.role === "assistant" ? (
               <><span style={{ color: "var(--leaf)" }}>truth_terminal</span>
               <span className="text-terminal-dim">:/$ </span>
-              <Typewriter text={m.content} speed={18} /></>
+              {i === messages.length - 1
+                ? <Typewriter text={m.content} speed={18} />
+                : m.content}
+              </>
             ) : (
               <><span className="text-terminal-dim">you:/$ </span>{m.content}</>
             )}
