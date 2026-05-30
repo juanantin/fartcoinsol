@@ -243,7 +243,6 @@ function TerminalChat() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Opening transmission from Truth Terminal
@@ -261,8 +260,12 @@ function TerminalChat() {
       .catch(() => setReady(true));
   }, []);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
   }, [messages, loading]);
 
   const send = async () => {
@@ -289,7 +292,7 @@ function TerminalChat() {
   return (
     <div className="mt-2 text-xs md:text-sm">
       {/* Message history */}
-      <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
+      <div ref={scrollRef} className="max-h-48 overflow-y-auto space-y-1 pr-1">
         {messages.map((m, i) => (
           <div key={i} className={m.role === "user" ? "text-terminal-dim" : "text-terminal"}>
             {m.role === "assistant" ? (
@@ -308,7 +311,6 @@ function TerminalChat() {
             <span className="blink">_</span>
           </div>
         )}
-        <div ref={bottomRef} />
       </div>
 
       {/* Input */}
