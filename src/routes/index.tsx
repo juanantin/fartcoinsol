@@ -141,120 +141,116 @@ const ASCII_LOGO = String.raw`
  ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═════╝ ╚═╝╚═╝  ╚═══╝
 `;
 
-// Tree species by milestone
-// sapling: < $2k/tree  medium: $2k-5k  tall: $5k-10k  ancient: $10k+
-const SPECIES = {
-  sapling:  ["  ↑  ", " \\|/ ", "  |  "],
-  medium:   [" &&& ", "&&&&&", " ||| "],
-  tall:     ["&&&&&", "&&&&&&& ", " ||| "],
-  ancient:  ["&&&&&&&&& ", "&&&&&&&&&&& ", "  |||  "],
+// Tree templates — 8 rows each, fixed width 9 chars
+const TREE_TEMPLATES: Record<string, string[]> = {
+  sapling: [
+    "   ↑   ",
+    "  /|\\  ",
+    " //|\\\\ ",
+    "   |   ",
+    "   |   ",
+    "   |   ",
+    "       ",
+    "~~~~~~~",
+  ],
+  medium: [
+    "  &&&  ",
+    " &&&&& ",
+    "&&&&&&&",
+    " &&&&& ",
+    "  |||  ",
+    "  |||  ",
+    "       ",
+    "~~~~~~~",
+  ],
+  tall: [
+    " &&&&& ",
+    "&&&&&&&",
+    "&&&&&&&&",
+    " &&&&& ",
+    "  &&&  ",
+    "  |||  ",
+    "  |||  ",
+    "~~~~~~~",
+  ],
+  ancient: [
+    " &&&&&&& ",
+    "&&&&&&&&&",
+    "&&&&&&&&&",
+    " %%%%%%% ",
+    "  &&&&&  ",
+    "   |||   ",
+    "   |||   ",
+    "~~~~~~~~~",
+  ],
 };
 
-// Build a single tree column (8 rows) for a given species + sway offset
-function buildTree(species: keyof typeof SPECIES, sway: number): string[] {
-  const templates: Record<keyof typeof SPECIES, string[]> = {
-    sapling: [
-      "   ↑   ",
-      "  /|\\  ",
-      " //|\\\\ ",
-      "  |||  ",
-      "  |||  ",
-      "  |||  ",
-      "       ",
-      "~~~~~~~",
-    ],
-    medium: [
-      "  &&&  ",
-      " &&&&& ",
-      "&&&&&&&",
-      " &&&&& ",
-      "  |||  ",
-      "  |||  ",
-      "       ",
-      "~~~~~~~",
-    ],
-    tall: [
-      " &&&&& ",
-      "&&&&&&&",
-      "&&&&&&&&",
-      " &&&&& ",
-      "  &&&  ",
-      "  |||  ",
-      "  |||  ",
-      "~~~~~~~",
-    ],
-    ancient: [
-      "&&&&&&&&& ",
-      "&&&&&&&&&&",
-      " &&&&&&& ",
-      "  &&&&&  ",
-      "   &&&   ",
-      "   |||   ",
-      "   |||   ",
-      "~~~~~~~~~~",
-    ],
-  };
-  const t = templates[species];
-  if (sway === 0) return t;
-  return t.map((row, i) => {
-    if (i >= 5) return row; // don't sway trunk
-    const pad = " ".repeat(Math.abs(sway));
-    return sway > 0 ? pad + row : row + pad;
-  });
+function getSpecies(donated: number, treeCount: number): string {
+  const perTree = donated / Math.max(treeCount, 1);
+  if (perTree >= 8000) return "ancient";
+  if (perTree >= 4000) return "tall";
+  if (perTree >= 1000) return "medium";
+  return "sapling";
 }
 
 function ForestAnimation({ donated }: { donated: number }) {
-  const [sway, setSway] = useState(0);
-  const [tick, setTick] = useState(0);
-
-  // How many trees: 1 per $1k, min 3, max 20
   const treeCount = Math.min(20, Math.max(3, Math.floor(donated / 1000)));
+  const species = getSpecies(donated, treeCount);
+  const template = TREE_TEMPLATES[species];
+  const [cells, setCells] = useState<Record<string, string>>({});
 
-  // Which species based on total donated
-  function speciesForIndex(i: number, total: number): keyof typeof SPECIES {
-    const share = total / Math.max(treeCount, 1);
-    if (share >= 8000) return i % 3 === 1 ? "ancient" : "tall";
-    if (share >= 4000) return i % 4 === 0 ? "tall" : "medium";
-    if (share >= 1000) return i % 5 === 0 ? "medium" : "sapling";
-    return "sapling";
-  }
-
-  // Animated sway
+  // Gentle leaf flicker — only on canopy rows (0-4), only & % chars
   useEffect(() => {
-    const swaySeq = [0, 0, 1, 0, -1, 0, 0, 1, 1, 0, -1, -1, 0];
-    const delays =  [900, 700, 400, 300, 400, 300, 800, 400, 300, 400, 300, 400, 1200];
-    const id = setTimeout(() => {
-      const next = (tick + 1) % swaySeq.length;
-      setSway(swaySeq[next]);
-      setTick(next);
-    }, delays[tick % delays.length]);
-    return () => clearTimeout(id);
-  }, [tick]);
+    const id = setInterval(() => {
+      const next: Record<string, string> = {};
+      const count = 2 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < count; i++) {
+        const row = Math.floor(Math.random() * 4);
+        const col = Math.floor(Math.random() * treeCount);
+        const line = template[row];
+        const leafPositions: number[] = [];
+        for (let c = 0; c < line.length; c++) {
+          if ("&%".includes(line[c])) leafPositions.push(c);
+        }
+        if (!leafPositions.length) continue;
+        const lc = leafPositions[Math.floor(Math.random() * leafPositions.length)];
+        next[`${row}-${col}-${lc}`] = LEAF_CHARS[Math.floor(Math.random() * LEAF_CHARS.length)];
+      }
+      setCells(next);
+    }, 350);
+    return () => clearInterval(id);
+  }, [treeCount, species]);
 
-  // Build forest grid: each tree is 8 rows
-  const trees = Array.from({ length: treeCount }, (_, i) =>
-    buildTree(speciesForIndex(i, donated), i % 2 === 0 ? sway : -sway)
-  );
-
-  // Merge trees side by side into rows
+  // Build rows by joining trees side by side
   const rows = Array.from({ length: 8 }, (_, row) =>
-    trees.map((t) => t[row] ?? "").join(" ")
+    Array.from({ length: treeCount }, (_, col) =>
+      template[row].split("").map((ch, c) => {
+        const key = `${row}-${col}-${c}`;
+        return cells[key] ?? ch;
+      }).join("")
+    ).join(" ")
   );
 
   return (
     <div className="mt-6 overflow-x-auto">
       <pre className="text-[8px] leading-tight text-leaf md:text-[10px] glow select-none inline-block">
-        {rows.join("\n")}
+        {rows.map((row, i) => {
+          // Highlight flickered chars in amber
+          return (
+            <div key={i}>
+              {row.split("").map((ch, j) => {
+                const isFlicker = Object.values(cells).includes(ch) &&
+                  !"&%~|/ \\↑".includes(ch);
+                return isFlicker
+                  ? <span key={j} style={{ color: "var(--amber)" }}>{ch}</span>
+                  : ch;
+              })}
+            </div>
+          );
+        })}
       </pre>
-      {/* Milestone label */}
       <div className="mt-1 text-[9px] text-terminal-dim">
-        {treeCount} trees · {donated >= 1000
-          ? `$${Math.floor(donated / 1000)}k donated`
-          : `$${Math.floor(donated)} donated`
-        } · next tree at ${Math.ceil(donated / 1000) * 1000 > donated
-          ? `$${Math.ceil(donated / 1000) * 1000}`
-          : `$${(Math.floor(donated / 1000) + 1) * 1000}`
-        }
+        {treeCount} {species} trees · ${Math.floor(donated).toLocaleString()} donated · next at ${(Math.ceil((donated + 1) / 1000) * 1000).toLocaleString()}
       </div>
     </div>
   );
