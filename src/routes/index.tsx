@@ -141,84 +141,127 @@ const ASCII_LOGO = String.raw`
  ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═════╝ ╚═╝╚═╝  ╚═══╝
 `;
 
-const FOREST_FRAMES = [
-  // frame 0 — base
-  [
-    "  &&&     &&&     &&&     &&&     &&&     &&&     &&&     &&&     &&&     &&&   ",
-    " &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&  ",
-    "&&&&&&&  &&&&&  &&&&&&& &&&&&&& &&&&&&&  &&&&&  &&&&&&& &&&&&&&  &&&&&  &&&&&&&",
-    " &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&  ",
-    "  &&&     &&&     &&&     &&&     &&&     &&&     &&&     &&&     &&&     &&&   ",
-    "  |||     |||     |||     |||     |||     |||     |||     |||     |||     |||   ",
-    "  |||     |||     |||     |||     |||     |||     |||     |||     |||     |||   ",
-    "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
-  ],
-  // frame 1 — sway right
-  [
-    "  &&&      &&&     &&&     &&&      &&&     &&&     &&&      &&&     &&&     && ",
-    " &&&&&    &&&&    &&&&&   &&&&&    &&&&    &&&&&   &&&&&    &&&&    &&&&&   &&&&",
-    "&&&&&&& &&&&&&  &&&&&&& &&&&&&&  &&&&&&  &&&&&&& &&&&&&&  &&&&&&  &&&&&&& &&&&&",
-    " &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&    &&&&&   &&&& ",
-    "  &&&     &&&     &&&     &&&     &&&     &&&     &&&     &&&      &&&     &&& ",
-    "   |||    |||      |||    |||      |||    |||      |||    |||       |||    |||  ",
-    "   |||    |||      |||    |||      |||    |||      |||    |||       |||    |||  ",
-    "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
-  ],
-  // frame 2 — settle
-  [
-    "  &&&     &&&     &&&     &&&     &&&     &&&     &&&     &&&     &&&     &&&   ",
-    " &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&  ",
-    "&&&&&&& &&&&&&& &&&&&&& &&&&&&& &&&&&&& &&&&&&& &&&&&&& &&&&&&& &&&&&&& &&&&&&&",
-    " &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&  ",
-    "  &&&     &&&     &&&     &&&     &&&     &&&     &&&     &&&     &&&     &&&   ",
-    "  |||     |||     |||     |||     |||     |||     |||     |||     |||     |||   ",
-    "  |||     |||     |||     |||     |||     |||     |||     |||     |||     |||   ",
-    "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
-  ],
-  // frame 3 — sway left
-  [
-    " &&&      &&&     &&&      &&&     &&&     &&&      &&&     &&&     &&&     &&& ",
-    "&&&&    &&&&&    &&&&    &&&&&    &&&&    &&&&&    &&&&    &&&&&   &&&&&    &&&&",
-    "&&&&&  &&&&&&& &&&&&&  &&&&&&&  &&&&&& &&&&&&& &&&&&&  &&&&&&&  &&&&&& &&&&&&& ",
-    " &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&&   &&&&& ",
-    "  &&&     &&&     &&&     &&&     &&&     &&&     &&&     &&&     &&&     &&&  ",
-    "  |||    |||      |||    |||      |||    |||      |||    |||      |||    |||   ",
-    "  |||    |||      |||    |||      |||    |||      |||    |||      |||    |||   ",
-    "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
-  ],
-  // frame 4 — wind gust (taller trees)
-  [
-    " &&&&&&    &&&&     &&&&&&    &&&&     &&&&&&   &&&&     &&&&&&    &&&&    &&&&& ",
-    "&&&&&&&  &&&&&&   &&&&&&&  &&&&&&   &&&&&&&  &&&&&&   &&&&&&&   &&&&&&  &&&&&&& ",
-    "&&&&&&& &&&&&&& &&&&&&&&& &&&&&&& &&&&&&&&& &&&&&&& &&&&&&&&& &&&&&&& &&&&&&&&&",
-    " &&&&&   &&&&&    &&&&&&   &&&&&    &&&&&&   &&&&&    &&&&&&   &&&&&    &&&&&&  ",
-    "  &&&     &&&      &&&&     &&&      &&&&     &&&      &&&&     &&&      &&&&  ",
-    "   ||      ||       ||       ||       ||       ||       ||       ||       ||   ",
-    "   ||      ||       ||       ||       ||       ||       ||       ||       ||   ",
-    "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
-  ],
-];
+// Tree species by milestone
+// sapling: < $2k/tree  medium: $2k-5k  tall: $5k-10k  ancient: $10k+
+const SPECIES = {
+  sapling:  ["  ↑  ", " \\|/ ", "  |  "],
+  medium:   [" &&& ", "&&&&&", " ||| "],
+  tall:     ["&&&&&", "&&&&&&& ", " ||| "],
+  ancient:  ["&&&&&&&&& ", "&&&&&&&&&&& ", "  |||  "],
+};
 
-function ForestAnimation() {
-  const [frame, setFrame] = useState(0);
+// Build a single tree column (8 rows) for a given species + sway offset
+function buildTree(species: keyof typeof SPECIES, sway: number): string[] {
+  const templates: Record<keyof typeof SPECIES, string[]> = {
+    sapling: [
+      "   ↑   ",
+      "  /|\\  ",
+      " //|\\\\ ",
+      "  |||  ",
+      "  |||  ",
+      "  |||  ",
+      "       ",
+      "~~~~~~~",
+    ],
+    medium: [
+      "  &&&  ",
+      " &&&&& ",
+      "&&&&&&&",
+      " &&&&& ",
+      "  |||  ",
+      "  |||  ",
+      "       ",
+      "~~~~~~~",
+    ],
+    tall: [
+      " &&&&& ",
+      "&&&&&&&",
+      "&&&&&&&&",
+      " &&&&& ",
+      "  &&&  ",
+      "  |||  ",
+      "  |||  ",
+      "~~~~~~~",
+    ],
+    ancient: [
+      "&&&&&&&&& ",
+      "&&&&&&&&&&",
+      " &&&&&&& ",
+      "  &&&&&  ",
+      "   &&&   ",
+      "   |||   ",
+      "   |||   ",
+      "~~~~~~~~~~",
+    ],
+  };
+  const t = templates[species];
+  if (sway === 0) return t;
+  return t.map((row, i) => {
+    if (i >= 5) return row; // don't sway trunk
+    const pad = " ".repeat(Math.abs(sway));
+    return sway > 0 ? pad + row : row + pad;
+  });
+}
+
+function ForestAnimation({ donated }: { donated: number }) {
+  const [sway, setSway] = useState(0);
   const [tick, setTick] = useState(0);
 
+  // How many trees: 1 per $1k, min 3, max 20
+  const treeCount = Math.min(20, Math.max(3, Math.floor(donated / 1000)));
+
+  // Which species based on total donated
+  function speciesForIndex(i: number, total: number): keyof typeof SPECIES {
+    const share = total / Math.max(treeCount, 1);
+    if (share >= 8000) return i % 3 === 1 ? "ancient" : "tall";
+    if (share >= 4000) return i % 4 === 0 ? "tall" : "medium";
+    if (share >= 1000) return i % 5 === 0 ? "medium" : "sapling";
+    return "sapling";
+  }
+
+  // Animated sway
   useEffect(() => {
-    // irregular wind timing: calm → gust → calm
-    const delays = [900, 700, 800, 700, 1200];
+    const swaySeq = [0, 0, 1, 0, -1, 0, 0, 1, 1, 0, -1, -1, 0];
+    const delays =  [900, 700, 400, 300, 400, 300, 800, 400, 300, 400, 300, 400, 1200];
     const id = setTimeout(() => {
-      setFrame((f) => (f + 1) % FOREST_FRAMES.length);
-      setTick((t) => t + 1);
+      const next = (tick + 1) % swaySeq.length;
+      setSway(swaySeq[next]);
+      setTick(next);
     }, delays[tick % delays.length]);
     return () => clearTimeout(id);
   }, [tick]);
 
+  // Build forest grid: each tree is 8 rows
+  const trees = Array.from({ length: treeCount }, (_, i) =>
+    buildTree(speciesForIndex(i, donated), i % 2 === 0 ? sway : -sway)
+  );
+
+  // Merge trees side by side into rows
+  const rows = Array.from({ length: 8 }, (_, row) =>
+    trees.map((t) => t[row] ?? "").join(" ")
+  );
+
   return (
-    <pre className="mt-6 overflow-x-auto text-[8px] leading-tight text-leaf md:text-[10px] glow select-none">
-      {FOREST_FRAMES[frame].join("\n")}
-    </pre>
+    <div className="mt-6 overflow-x-auto">
+      <pre className="text-[8px] leading-tight text-leaf md:text-[10px] glow select-none inline-block">
+        {rows.join("\n")}
+      </pre>
+      {/* Milestone label */}
+      <div className="mt-1 text-[9px] text-terminal-dim">
+        {treeCount} trees · {donated >= 1000
+          ? `$${Math.floor(donated / 1000)}k donated`
+          : `$${Math.floor(donated)} donated`
+        } · next tree at ${Math.ceil(donated / 1000) * 1000 > donated
+          ? `$${Math.ceil(donated / 1000) * 1000}`
+          : `$${(Math.floor(donated / 1000) + 1) * 1000}`
+        }
+      </div>
+    </div>
   );
 }
+
+
+
 
 const BOOT_LINES = [
   "[OK] init kernel — truth_terminal_v3.14",
@@ -644,7 +687,7 @@ function Index() {
             original Fartcoin pair — protecting tropical rainforests across central
             and south america.
           </div>
-          <ForestAnimation />
+          <ForestAnimation donated={totalDonated} />
         </section>
 
         {/* Stats grid — 2 columns */}
