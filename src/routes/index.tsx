@@ -185,6 +185,8 @@ const TREE_TEMPLATES: Record<string, string[]> = {
   ],
 };
 
+const TREES_PER_ROW = 20;
+
 function getSpecies(donated: number, treeCount: number): string {
   const perTree = donated / Math.max(treeCount, 1);
   if (perTree >= 8000) return "ancient";
@@ -194,63 +196,82 @@ function getSpecies(donated: number, treeCount: number): string {
 }
 
 function ForestAnimation({ donated }: { donated: number }) {
-  const treeCount = Math.min(20, Math.max(3, Math.floor(donated / 1000)));
-  const species = getSpecies(donated, treeCount);
+  const totalTrees = Math.max(3, Math.floor(donated / 1000));
+  const species = getSpecies(donated, Math.min(totalTrees, TREES_PER_ROW));
   const template = TREE_TEMPLATES[species];
+
+  // How many full rows + remainder
+  const fullRows = Math.floor(totalTrees / TREES_PER_ROW);
+  const remainder = totalTrees % TREES_PER_ROW;
+  const rowCounts = [
+    ...Array.from({ length: fullRows }, () => TREES_PER_ROW),
+    ...(remainder > 0 ? [remainder] : []),
+  ];
+
   const [cells, setCells] = useState<Record<string, string>>({});
 
-  // Gentle leaf flicker — only on canopy rows (0-4), only & % chars
   useEffect(() => {
     const id = setInterval(() => {
       const next: Record<string, string> = {};
       const count = 2 + Math.floor(Math.random() * 4);
       for (let i = 0; i < count; i++) {
-        const row = Math.floor(Math.random() * 4);
-        const col = Math.floor(Math.random() * treeCount);
-        const line = template[row];
+        const rowGroup = Math.floor(Math.random() * rowCounts.length);
+        const treeCol = Math.floor(Math.random() * rowCounts[rowGroup]);
+        const treeRow = Math.floor(Math.random() * 4);
+        const line = template[treeRow];
         const leafPositions: number[] = [];
         for (let c = 0; c < line.length; c++) {
           if ("&%".includes(line[c])) leafPositions.push(c);
         }
         if (!leafPositions.length) continue;
         const lc = leafPositions[Math.floor(Math.random() * leafPositions.length)];
-        next[`${row}-${col}-${lc}`] = LEAF_CHARS[Math.floor(Math.random() * LEAF_CHARS.length)];
+        next[`${rowGroup}-${treeRow}-${treeCol}-${lc}`] = LEAF_CHARS[Math.floor(Math.random() * LEAF_CHARS.length)];
       }
       setCells(next);
     }, 350);
     return () => clearInterval(id);
-  }, [treeCount, species]);
+  }, [totalTrees, species]);
 
-  // Build rows by joining trees side by side
-  const rows = Array.from({ length: 8 }, (_, row) =>
-    Array.from({ length: treeCount }, (_, col) =>
-      template[row].split("").map((ch, c) => {
-        const key = `${row}-${col}-${c}`;
-        return cells[key] ?? ch;
-      }).join("")
-    ).join(" ")
-  );
+  // Background rows show only top 3 canopy lines (peeking behind)
+  const bgTemplate = template.slice(0, 3);
 
   return (
     <div className="mt-6 overflow-x-auto">
       <pre className="text-[8px] leading-tight text-leaf md:text-[10px] glow select-none inline-block">
-        {rows.map((row, i) => {
-          // Highlight flickered chars in amber
+        {rowCounts.map((count, rowGroupIdx) => {
+          const isFront = rowGroupIdx === rowCounts.length - 1;
+          const tpl = isFront ? template : bgTemplate;
+          const opacity = isFront ? 1 : Math.max(0.35, 1 - rowGroupIdx * 0.2);
+
+          const rows = Array.from({ length: tpl.length }, (_, row) =>
+            Array.from({ length: count }, (_, col) =>
+              tpl[row].split("").map((ch, c) => {
+                const key = `${rowGroupIdx}-${row}-${col}-${c}`;
+                return cells[key] ?? ch;
+              }).join("")
+            ).join(" ")
+          );
+
           return (
-            <div key={i}>
-              {row.split("").map((ch, j) => {
-                const isFlicker = Object.values(cells).includes(ch) &&
-                  !"&%~|/ \\↑".includes(ch);
-                return isFlicker
-                  ? <span key={j} style={{ color: "var(--amber)" }}>{ch}</span>
-                  : ch;
-              })}
+            <div key={rowGroupIdx} style={{ opacity }}>
+              {rows.map((row, i) => (
+                <div key={i}>
+                  {row.split("").map((ch, j) => {
+                    const isFlicker = !"&%~|/ \\↑\n ".includes(ch) && ch !== " ";
+                    return isFlicker
+                      ? <span key={j} style={{ color: "var(--amber)" }}>{ch}</span>
+                      : ch;
+                  })}
+                </div>
+              ))}
             </div>
           );
-        })}
+        }).reverse()}
       </pre>
       <div className="mt-1 text-[9px] text-terminal-dim">
-        {treeCount} {species} trees · ${Math.floor(donated).toLocaleString()} donated · next at ${(Math.ceil((donated + 1) / 1000) * 1000).toLocaleString()}
+        {totalTrees} {species} trees · ${Math.floor(donated).toLocaleString()} donated
+        {totalTrees < 20 && ` · next tree at $${(Math.ceil((donated + 1) / 1000) * 1000).toLocaleString()}`}
+        {totalTrees >= 20 && ` · row ${Math.ceil(totalTrees / TREES_PER_ROW)} of forest`}
       </div>
     </div>
   );
