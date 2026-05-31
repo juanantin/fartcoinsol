@@ -187,18 +187,20 @@ const TREE_TEMPLATES: Record<string, string[]> = {
 
 const TREES_PER_ROW = 20;
 
-function getSpecies(donated: number, treeCount: number): string {
-  const perTree = donated / Math.max(treeCount, 1);
-  if (perTree >= 8000) return "ancient";
-  if (perTree >= 4000) return "tall";
-  if (perTree >= 1000) return "medium";
-  return "sapling";
+// Deterministic species mix per tree index based on donation level
+function speciesForTree(treeIdx: number, donated: number): string {
+  const unlocked = donated >= 15000 ? ["sapling", "medium", "tall", "ancient"] :
+                   donated >= 8000  ? ["sapling", "medium", "tall"] :
+                   donated >= 3000  ? ["sapling", "medium"] :
+                                      ["sapling"];
+  // Use a fixed pattern so trees don't change on re-render
+  const patterns = [0, 1, 0, 2, 1, 0, 3, 1, 2, 0, 1, 3, 0, 2, 1, 0, 3, 2, 1, 0];
+  const idx = patterns[treeIdx % patterns.length] % unlocked.length;
+  return unlocked[idx];
 }
 
 function ForestAnimation({ donated }: { donated: number }) {
   const totalTrees = Math.max(3, Math.floor(donated / 1000));
-  const species = getSpecies(donated, Math.min(totalTrees, TREES_PER_ROW));
-  const template = TREE_TEMPLATES[species];
 
   // How many full rows + remainder
   const fullRows = Math.floor(totalTrees / TREES_PER_ROW);
@@ -215,63 +217,77 @@ function ForestAnimation({ donated }: { donated: number }) {
       const next: Record<string, string> = {};
       const count = 2 + Math.floor(Math.random() * 4);
       for (let i = 0; i < count; i++) {
-        const rowGroup = Math.floor(Math.random() * rowCounts.length);
-        const treeCol = Math.floor(Math.random() * rowCounts[rowGroup]);
+        const rowGroupIdx = Math.floor(Math.random() * rowCounts.length);
+        const treeCol = Math.floor(Math.random() * rowCounts[rowGroupIdx]);
+        const globalIdx = rowGroupIdx * TREES_PER_ROW + treeCol;
+        const tpl = TREE_TEMPLATES[speciesForTree(globalIdx, donated)];
         const treeRow = Math.floor(Math.random() * 4);
-        const line = template[treeRow];
+        const line = tpl[treeRow];
         const leafPositions: number[] = [];
         for (let c = 0; c < line.length; c++) {
           if ("&%".includes(line[c])) leafPositions.push(c);
         }
         if (!leafPositions.length) continue;
         const lc = leafPositions[Math.floor(Math.random() * leafPositions.length)];
-        next[`${rowGroup}-${treeRow}-${treeCol}-${lc}`] = LEAF_CHARS[Math.floor(Math.random() * LEAF_CHARS.length)];
+        next[`${rowGroupIdx}-${treeRow}-${treeCol}-${lc}`] = LEAF_CHARS[Math.floor(Math.random() * LEAF_CHARS.length)];
       }
       setCells(next);
     }, 350);
     return () => clearInterval(id);
-  }, [totalTrees, species]);
-
-  // Background rows show only top 3 canopy lines (peeking behind)
-  const bgTemplate = template.slice(0, 3);
+  }, [totalTrees, donated]);
 
   return (
     <div className="mt-6 overflow-x-auto">
       <pre className="text-[8px] leading-tight text-leaf md:text-[10px] glow select-none inline-block">
         {rowCounts.map((count, rowGroupIdx) => {
           const isFront = rowGroupIdx === rowCounts.length - 1;
-          const tpl = isFront ? template : bgTemplate;
           const opacity = isFront ? 1 : Math.max(0.35, 1 - rowGroupIdx * 0.2);
 
-          const rows = Array.from({ length: tpl.length }, (_, row) =>
-            Array.from({ length: count }, (_, col) =>
-              tpl[row].split("").map((ch, c) => {
-                const key = `${rowGroupIdx}-${row}-${col}-${c}`;
-                return cells[key] ?? ch;
-              }).join("")
-            ).join(" ")
-          );
+          // Each tree in this row group can be a different species
+          const treeLines = Array.from({ length: count }, (_, col) => {
+            const globalIdx = rowGroupIdx * TREES_PER_ROW + col;
+            const sp = speciesForTree(globalIdx, donated);
+            const tpl = isFront ? TREE_TEMPLATES[sp] : TREE_TEMPLATES[sp].slice(0, 3);
+            return tpl;
+          });
+
+          const numRows = isFront ? 8 : 3;
 
           return (
             <div key={rowGroupIdx} style={{ opacity }}>
-              {rows.map((row, i) => (
-                <div key={i}>
-                  {row.split("").map((ch, j) => {
-                    const isFlicker = !"&%~|/ \\↑\n ".includes(ch) && ch !== " ";
-                    return isFlicker
-                      ? <span key={j} style={{ color: "var(--amber)" }}>{ch}</span>
-                      : ch;
-                  })}
-                </div>
-              ))}
+              {Array.from({ length: numRows }, (_, row) => {
+                // Build this row by joining each tree's line
+                const parts = treeLines.map((tpl, col) => {
+                  const line = (tpl[row] ?? "       ").split("");
+                  return line.map((ch, c) => {
+                    const key = `${rowGroupIdx}-${row}-${col}-${c}`;
+                    return cells[key] ?? ch;
+                  });
+                });
+
+                // Flatten with space separator between trees
+                const chars: React.ReactNode[] = [];
+                parts.forEach((tree, col) => {
+                  if (col > 0) chars.push(" ");
+                  tree.forEach((ch, c) => {
+                    const isFlicker = !"&%~|/ \\↑ ".includes(ch as string);
+                    chars.push(isFlicker
+                      ? <span key={`${col}-${c}`} style={{ color: "var(--amber)" }}>{ch}</span>
+                      : ch
+                    );
+                  });
+                });
+
+                return <div key={row}>{chars}</div>;
+              })}
             </div>
           );
         }).reverse()}
       </pre>
       <div className="mt-1 text-[9px] text-terminal-dim">
-        {totalTrees} {species} trees · ${Math.floor(donated).toLocaleString()} donated
-        {totalTrees < 20 && ` · next tree at $${(Math.ceil((donated + 1) / 1000) * 1000).toLocaleString()}`}
-        {totalTrees >= 20 && ` · row ${Math.ceil(totalTrees / TREES_PER_ROW)} of forest`}
+        {totalTrees} trees · ${Math.floor(donated).toLocaleString()} donated
+        {totalTrees < TREES_PER_ROW && ` · next at $${(Math.ceil((donated + 1) / 1000) * 1000).toLocaleString()}`}
+        {totalTrees >= TREES_PER_ROW && ` · row ${Math.ceil(totalTrees / TREES_PER_ROW)} of forest`}
       </div>
     </div>
   );
