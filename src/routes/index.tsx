@@ -783,6 +783,22 @@ function Index() {
               >
                 [ x_community ]
               </a>
+              <a
+                href="https://x.com/fartcointrees"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-sm border border-border px-3 py-2 text-xs text-terminal transition hover:bg-terminal hover:text-background"
+              >
+                [ x_main ]
+              </a>
+              <a
+                href="https://t.me/fartcoin_CTO_portal"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-sm border border-border px-3 py-2 text-xs text-terminal transition hover:bg-terminal hover:text-background"
+              >
+                [ telegram ]
+              </a>
             </div>
           </div>
         </section>
