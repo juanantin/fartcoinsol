@@ -553,7 +553,18 @@ function Index() {
     refetchInterval: 120_000,
     staleTime: 60_000,
   });
-  const totalDonated = donationLive?.donated ?? 0;
+  // Snapshot baseline: 200 SOL = $18,000 (historical price at time of snapshot)
+  // Live price used only for SOL accumulated beyond the snapshot
+  const SNAPSHOT_SOL = 200;
+  const SNAPSHOT_USD = 18000;
+  const solDonated = donationLive?.solDonated ?? 0;
+  const solPrice = donationLive?.solPrice ?? 0;
+  const totalDonated =
+    donationLive === undefined
+      ? 0
+      : solDonated <= SNAPSHOT_SOL
+      ? SNAPSHOT_USD
+      : SNAPSHOT_USD + (solDonated - SNAPSHOT_SOL) * solPrice;
   const [burst, setBurst] = useState(false);
   const [bootStep, setBootStep] = useState(() =>
     typeof sessionStorage !== "undefined" && sessionStorage.getItem("booted") ? BOOT_LINES.length : 0
