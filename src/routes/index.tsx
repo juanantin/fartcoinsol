@@ -786,15 +786,6 @@ function Index() {
                 [ chart ]
               </a>
               <a
-                href={X_COMMUNITY}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-sm border border-leaf px-3 py-2 text-xs transition hover:bg-leaf hover:text-background"
-                style={{ color: "var(--leaf)", borderColor: "var(--leaf)" }}
-              >
-                [ x_community ]
-              </a>
-              <a
                 href="https://x.com/fartcointrees"
                 target="_blank"
                 rel="noreferrer"
@@ -862,9 +853,6 @@ function Index() {
           <div className="mt-3 flex flex-wrap justify-center gap-4">
             <a className="hover:text-terminal" href={`https://pump.fun/coin/${ca}`} target="_blank" rel="noreferrer">
               pump.fun
-            </a>
-            <a className="hover:text-terminal" href={X_COMMUNITY} target="_blank" rel="noreferrer">
-              x_community
             </a>
             <a className="hover:text-terminal" href="https://rainforestfoundation.org/" target="_blank" rel="noreferrer">
               rainforest_foundation_us
