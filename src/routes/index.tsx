@@ -1,11 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { useTokenData } from "@/hooks/use-token-data";
 import { Typewriter } from "@/components/typewriter";
 import { CountUp } from "@/components/count-up";
-import { getDonationTotal } from "@/lib/donation.functions";
 
 const X_COMMUNITY = "https://x.com/i/communities/1962171664503840873";
 
@@ -65,12 +63,15 @@ const BOOT_LINES = [
 
 function Index() {
   const { data, ca } = useTokenData();
-  const fetchDonation = useServerFn(getDonationTotal);
   const { data: donationLive } = useQuery({
-    queryKey: ["donation", ca],
-    queryFn: () => fetchDonation(),
-    refetchInterval: 60_000,
-    staleTime: 30_000,
+    queryKey: ["donation"],
+    queryFn: async () => {
+      const res = await fetch("/api/donation", { cache: "no-store" });
+      if (!res.ok) throw new Error("fetch failed");
+      return res.json() as Promise<{ donated: number; solDonated: number; solPrice: number }>;
+    },
+    refetchInterval: 30_000,
+    staleTime: 0,
   });
   const totalDonated = donationLive?.donated ?? 0;
   const [bootStep, setBootStep] = useState(0);
