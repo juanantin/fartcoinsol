@@ -1,0 +1,128 @@
+name: Update Donation Data
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/serene-mccarthy-QGh0q
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Fetch on-chain donation data
+        run: |
+          node - <<'EOF'
+          const fs = require('fs');
+
+          const MINT = 'HnXDnwTa68tRhLRZdJkVRLAeYrUkCYgFgDavtwD1pump';
+          const FEE_PROGRAM = 'pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ';
+          const DISC_B58 = 'iGzHuqTccwt';
+
+          const RPC_ENDPOINTS = [
+            'https://rpc.ankr.com/solana',
+            'https://api.mainnet-beta.solana.com',
+          ];
+
+          async function rpc(endpoint, method, params) {
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+            });
+            return res.json();
+          }
+
+          async function getDonatedSOL() {
+            for (const endpoint of RPC_ENDPOINTS) {
+              console.log('Trying RPC:', endpoint);
+              try {
+                const data = await rpc(endpoint, 'getProgramAccounts', [
+                  FEE_PROGRAM,
+                  {
+                    encoding: 'base64',
+                    filters: [
+                      { memcmp: { offset: 0, bytes: DISC_B58 } },
+                      { memcmp: { offset: 42, bytes: MINT } },
+                    ],
+                  },
+                ]);
+                if (data.error) { console.log('RPC error:', JSON.stringify(data.error)); continue; }
+                console.log('Accounts found:', data.result?.length ?? 0);
+                let totalLamports = BigInt(0);
+                for (const { account } of data.result ?? []) {
+                  const buf = Buffer.from(account.data[0], 'base64');
+                  if (buf.length >= 146) {
+                    const donated = buf.readBigUInt64LE(138);
+                    totalLamports += donated;
+                  }
+                }
+                return Number(totalLamports) / 1e9;
+              } catch (e) {
+                console.log('Error:', e.message);
+              }
+            }
+            return null;
+          }
+
+          async function getSolPrice() {
+            // Binance — most reliable, no key needed
+            try {
+              const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT');
+              const json = await res.json();
+              const price = parseFloat(json?.price);
+              if (price > 0) { console.log('SOL price (binance):', price); return price; }
+            } catch {}
+            // CoinGecko fallback
+            try {
+              const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+              const json = await res.json();
+              const price = json?.solana?.usd;
+              if (price > 0) { console.log('SOL price (coingecko):', price); return price; }
+            } catch {}
+            // Jupiter fallback
+            try {
+              const res = await fetch('https://lite-api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112');
+              const json = await res.json();
+              const price = parseFloat(json?.data?.['So11111111111111111111111111111111111111112']?.price);
+              if (price > 0) { console.log('SOL price (jupiter):', price); return price; }
+            } catch {}
+            return null;
+          }
+
+          (async () => {
+            const [solDonated, solPrice] = await Promise.all([getDonatedSOL(), getSolPrice()]);
+            console.log('solDonated:', solDonated, 'solPrice:', solPrice);
+
+            if (solDonated !== null && solPrice) {
+              const donated = solDonated * solPrice;
+              const result = { donated, solDonated, solPrice, source: 'solana-rpc', fetchedAt: new Date().toISOString() };
+              fs.writeFileSync('public/donation.json', JSON.stringify(result));
+              console.log('Wrote:', result);
+            } else {
+              console.log('Could not get data — keeping existing file');
+            }
+          })();
+          EOF
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/donation.json
+          if git diff --cached --quiet; then
+            echo "No change"
+          else
+            git commit -m "chore: update donation data [skip ci]"
+            git push
+          fi

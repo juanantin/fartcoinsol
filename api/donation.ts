@@ -50,24 +50,12 @@ async function getDonatedSOL(): Promise<number | null> {
 }
 
 async function getSolPrice(): Promise<number | null> {
-  // Jupiter v2 price API
+  // Binance — most reliable, no key needed
   try {
-    const res = await fetch(
-      "https://lite-api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112",
-      { headers: { "Accept": "application/json" } }
-    );
+    const res = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT");
     const json = await res.json();
-    const price = json?.data?.["So11111111111111111111111111111111111111112"]?.price;
-    if (price > 0) return Number(price);
-  } catch {}
-  // Jupiter v1 fallback
-  try {
-    const res = await fetch(
-      "https://price.jup.ag/v4/price?ids=SOL"
-    );
-    const json = await res.json();
-    const price = json?.data?.SOL?.price;
-    if (price > 0) return Number(price);
+    const price = parseFloat(json?.price);
+    if (price > 0) return price;
   } catch {}
   // CoinGecko fallback
   try {
@@ -76,6 +64,15 @@ async function getSolPrice(): Promise<number | null> {
     );
     const json = await res.json();
     if (json?.solana?.usd > 0) return json.solana.usd;
+  } catch {}
+  // Jupiter fallback
+  try {
+    const res = await fetch(
+      "https://lite-api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112"
+    );
+    const json = await res.json();
+    const price = parseFloat(json?.data?.["So11111111111111111111111111111111111111112"]?.price);
+    if (price > 0) return price;
   } catch {}
   return null;
 }

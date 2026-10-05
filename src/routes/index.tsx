@@ -63,12 +63,22 @@ const BOOT_LINES = [
 
 function Index() {
   const { data, ca } = useTokenData();
+  type DonationData = { donated: number; solDonated: number; solPrice: number; fetchedAt?: string };
   const { data: donationLive } = useQuery({
     queryKey: ["donation"],
-    queryFn: async () => {
-      const res = await fetch("/api/donation", { cache: "no-store" });
-      if (!res.ok) throw new Error("fetch failed");
-      return res.json() as Promise<{ donated: number; solDonated: number; solPrice: number }>;
+    queryFn: async (): Promise<DonationData> => {
+      // Try live edge API first
+      try {
+        const res = await fetch("/api/donation", { cache: "no-store" });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.solDonated > 0 && json.solPrice > 0) return json;
+        }
+      } catch {}
+      // Fall back to static donation.json (updated every 30 min by GitHub Actions)
+      const res = await fetch("/donation.json", { cache: "no-store" });
+      if (!res.ok) throw new Error("no data");
+      return res.json();
     },
     refetchInterval: 30_000,
     staleTime: 0,
