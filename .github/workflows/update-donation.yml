@@ -2,7 +2,7 @@ name: Update Donation Data
 
 on:
   schedule:
-    - cron: "0 */2 * * *"
+    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -13,6 +13,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: claude/serene-mccarthy-QGh0q
 
       - uses: actions/setup-node@v4
         with:
@@ -25,7 +27,6 @@ jobs:
 
           const MINT = 'HnXDnwTa68tRhLRZdJkVRLAeYrUkCYgFgDavtwD1pump';
           const FEE_PROGRAM = 'pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ';
-          // base58 of DonationFeePda discriminator [246,197,96,9,193,30,93,115]
           const DISC_B58 = 'iGzHuqTccwt';
 
           const RPC_ENDPOINTS = [
@@ -63,7 +64,6 @@ jobs:
                   const buf = Buffer.from(account.data[0], 'base64');
                   if (buf.length >= 146) {
                     const donated = buf.readBigUInt64LE(138);
-                    console.log('  account donated lamports:', donated.toString());
                     totalLamports += donated;
                   }
                 }
@@ -76,18 +76,26 @@ jobs:
           }
 
           async function getSolPrice() {
+            // Binance — most reliable, no key needed
+            try {
+              const res = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT');
+              const json = await res.json();
+              const price = parseFloat(json?.price);
+              if (price > 0) { console.log('SOL price (binance):', price); return price; }
+            } catch {}
+            // CoinGecko fallback
             try {
               const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
               const json = await res.json();
-              console.log('SOL price (coingecko):', json?.solana?.usd);
-              return json?.solana?.usd ?? null;
+              const price = json?.solana?.usd;
+              if (price > 0) { console.log('SOL price (coingecko):', price); return price; }
             } catch {}
+            // Jupiter fallback
             try {
-              const res = await fetch('https://price.jup.ag/v6/price?ids=So11111111111111111111111111111111111111112');
+              const res = await fetch('https://lite-api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112');
               const json = await res.json();
-              const price = json?.data?.['So11111111111111111111111111111111111111112']?.price ?? null;
-              console.log('SOL price (jupiter):', price);
-              return price;
+              const price = parseFloat(json?.data?.['So11111111111111111111111111111111111111112']?.price);
+              if (price > 0) { console.log('SOL price (jupiter):', price); return price; }
             } catch {}
             return null;
           }

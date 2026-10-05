@@ -537,34 +537,25 @@ function Index() {
   const { data: donationLive } = useQuery({
     queryKey: ["donation"],
     queryFn: async () => {
+      // Try live edge API first (no-store, always fresh)
       try {
-        const res = await fetch("/api/donation");
+        const res = await fetch("/api/donation", { cache: "no-store" });
         if (res.ok) {
           const json = await res.json();
-          if (json.donated > 0 || json.totalRaised > 0) return json;
+          if (json.solDonated > 0 && json.solPrice > 0) return json;
         }
       } catch {}
-      try {
-        const res = await fetch("/donation.json");
-        if (res.ok) return res.json();
-      } catch {}
-      return { donated: 0, totalRaised: 0 };
+      // Fall back to donation.json updated every 30 min by GitHub Actions
+      const res = await fetch("/donation.json", { cache: "no-store" });
+      if (res.ok) return res.json();
+      return { donated: 0, solDonated: 0, solPrice: 0 };
     },
-    refetchInterval: 120_000,
-    staleTime: 60_000,
+    refetchInterval: 30_000,
+    staleTime: 0,
   });
-  // Snapshot baseline: 200 SOL = $18,000 (historical price at time of snapshot)
-  // Live price used only for SOL accumulated beyond the snapshot
-  const SNAPSHOT_SOL = 200;
-  const SNAPSHOT_USD = 18000;
   const solDonated = donationLive?.solDonated ?? 0;
   const solPrice = donationLive?.solPrice ?? 0;
-  const totalDonated =
-    donationLive === undefined
-      ? 0
-      : solDonated <= SNAPSHOT_SOL
-      ? SNAPSHOT_USD
-      : SNAPSHOT_USD + (solDonated - SNAPSHOT_SOL) * solPrice;
+  const totalDonated = solDonated * solPrice;
   const [burst, setBurst] = useState(false);
   const [bootStep, setBootStep] = useState(() =>
     typeof sessionStorage !== "undefined" && sessionStorage.getItem("booted") ? BOOT_LINES.length : 0
