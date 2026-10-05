@@ -73,7 +73,18 @@ function Index() {
     refetchInterval: 30_000,
     staleTime: 0,
   });
-  const totalDonated = donationLive?.donated ?? 0;
+  // Snapshot baseline: 200 SOL = $18,000 (historical avg price)
+  // Only live SOL price applied to amount above snapshot
+  const SNAPSHOT_SOL = 200;
+  const SNAPSHOT_USD = 18000;
+  const solDonated = donationLive?.solDonated ?? 0;
+  const solPrice = donationLive?.solPrice ?? 0;
+  const totalDonated =
+    donationLive === undefined
+      ? 0
+      : solDonated <= SNAPSHOT_SOL
+      ? SNAPSHOT_USD
+      : SNAPSHOT_USD + (solDonated - SNAPSHOT_SOL) * solPrice;
   const [bootStep, setBootStep] = useState(0);
   const [bootDone, setBootDone] = useState(false);
 
@@ -162,7 +173,7 @@ function Index() {
               letterSpacing: "-0.04em",
             }}
           >
-            {totalDonated === 0 ? (
+            {donationLive === undefined ? (
               <span className="text-terminal-dim">$--.--</span>
             ) : (
               <CountUp value={totalDonated} decimals={2} prefix="$" />

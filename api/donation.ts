@@ -6,8 +6,9 @@ const FEE_PROGRAM = "pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ";
 const DISCRIMINATOR_B58 = "iGzHuqTccwt"; // base58([246,197,96,9,193,30,93,115])
 
 const RPC_ENDPOINTS = [
-  "https://rpc.ankr.com/solana",
   "https://api.mainnet-beta.solana.com",
+  "https://solana-mainnet.g.alchemy.com/v2/demo",
+  "https://rpc.ankr.com/solana",
 ];
 
 async function rpc(endpoint: string, method: string, params: unknown[]) {
@@ -49,14 +50,26 @@ async function getDonatedSOL(): Promise<number | null> {
 }
 
 async function getSolPrice(): Promise<number | null> {
+  // Jupiter v2 price API
   try {
     const res = await fetch(
-      "https://price.jup.ag/v6/price?ids=So11111111111111111111111111111111111111112"
+      "https://lite-api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112",
+      { headers: { "Accept": "application/json" } }
     );
     const json = await res.json();
     const price = json?.data?.["So11111111111111111111111111111111111111112"]?.price;
-    if (price > 0) return price;
+    if (price > 0) return Number(price);
   } catch {}
+  // Jupiter v1 fallback
+  try {
+    const res = await fetch(
+      "https://price.jup.ag/v4/price?ids=SOL"
+    );
+    const json = await res.json();
+    const price = json?.data?.SOL?.price;
+    if (price > 0) return Number(price);
+  } catch {}
+  // CoinGecko fallback
   try {
     const res = await fetch(
       "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd"
@@ -71,7 +84,7 @@ export default async function handler(): Promise<Response> {
   const headers = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    "Cache-Control": "s-maxage=300, stale-while-revalidate=60",
+    "Cache-Control": "no-store",
   };
 
   try {
