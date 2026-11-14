@@ -47,6 +47,15 @@ jobs:
             for (const endpoint of RPC_ENDPOINTS) {
               console.log('Trying RPC:', endpoint);
               try {
+                // First: check ALL accounts with just the discriminator (no mint filter) to see total count
+                const allData = await rpc(endpoint, 'getProgramAccounts', [
+                  FEE_PROGRAM,
+                  { encoding: 'base64', filters: [{ memcmp: { offset: 0, bytes: DISC_B58 } }] },
+                ]);
+                if (!allData.error) {
+                  console.log('DEBUG: total DonationFeePda accounts (no mint filter):', allData.result?.length ?? 0);
+                }
+
                 const data = await rpc(endpoint, 'getProgramAccounts', [
                   FEE_PROGRAM,
                   {
@@ -58,10 +67,20 @@ jobs:
                   },
                 ]);
                 if (data.error) { console.log('RPC error:', JSON.stringify(data.error)); continue; }
-                console.log('Accounts found:', data.result?.length ?? 0);
+                console.log('Accounts found (with mint filter):', data.result?.length ?? 0);
                 let totalLamports = BigInt(0);
-                for (const { account } of data.result ?? []) {
+                for (const { pubkey, account } of data.result ?? []) {
                   const buf = Buffer.from(account.data[0], 'base64');
+                  console.log('  account pubkey:', pubkey, 'data length:', buf.length);
+                  // Print first 200 bytes as hex to verify structure
+                  console.log('  raw bytes (hex):', buf.slice(0, 160).toString('hex'));
+                  // Try reading total_donated at various offsets
+                  for (const offset of [130, 134, 138, 142, 146]) {
+                    if (buf.length >= offset + 8) {
+                      const v = buf.readBigUInt64LE(offset);
+                      console.log(`  offset ${offset} as u64 LE = ${Number(v)/1e9} SOL`);
+                    }
+                  }
                   if (buf.length >= 146) {
                     const donated = buf.readBigUInt64LE(138);
                     totalLamports += donated;
