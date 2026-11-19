@@ -72,13 +72,14 @@ jobs:
                 for (const { pubkey, account } of data.result ?? []) {
                   const buf = Buffer.from(account.data[0], 'base64');
                   console.log('  account pubkey:', pubkey, 'data length:', buf.length);
-                  // Print first 200 bytes as hex to verify structure
-                  console.log('  raw bytes (hex):', buf.slice(0, 160).toString('hex'));
+                  // Print all bytes as hex to verify structure
+                  console.log('  raw bytes (hex):', buf.toString('hex'));
                   // Try reading total_donated at various offsets
-                  for (const offset of [130, 134, 138, 142, 146]) {
-                    if (buf.length >= offset + 8) {
-                      const v = buf.readBigUInt64LE(offset);
-                      console.log(`  offset ${offset} as u64 LE = ${Number(v)/1e9} SOL`);
+                  for (let offset = 128; offset <= buf.length - 8; offset += 8) {
+                    const v = buf.readBigUInt64LE(offset);
+                    const sol = Number(v)/1e9;
+                    if (sol > 0.001 && sol < 10000) {
+                      console.log(`  offset ${offset} as u64 LE = ${sol} SOL`);
                     }
                   }
                   if (buf.length >= 146) {
